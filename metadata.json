@@ -1,0 +1,6 @@
+{
+  "name": "Quran Video Maker",
+  "description": "Create HD & vertical 9:16 Quran recitation videos with synchronized Arabic typography, multi-language translations, Qari audio, and video export.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
