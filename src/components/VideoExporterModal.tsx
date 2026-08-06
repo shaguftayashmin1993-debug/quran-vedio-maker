@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X, Film, CheckCircle2, Download, FileText, Loader2, Play, Minimize2, Maximize2 } from 'lucide-react';
 import { Surah, VideoConfig, SavedVideo } from '../types';
-import { drawAyahFrame, drawBismillahFrame, drawTitleFrame } from '../utils/canvasRenderer';
+import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages } from '../utils/canvasRenderer';
 import { generateSrtSubtitles, generateVttSubtitles, downloadTextFile, SubtitleCue } from '../utils/subtitleGenerator';
 import { fetchAudioBuffer, playAudioBufferSegment, stripBismillahFromAyah1 } from '../utils/audioUtils';
 import { getAyahTranslationText } from '../utils/translationUtils';
@@ -34,6 +34,8 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
   const [generatedVideoSize, setGeneratedVideoSize] = useState<string>('0 MB');
   const [generatedCues, setGeneratedCues] = useState<SubtitleCue[]>([]);
 
+  const [exportQuality, setExportQuality] = useState<'fast' | 'hd'>('fast');
+
   if (!isOpen) return null;
 
   const ayahsInRange = surah.ayahs
@@ -44,13 +46,17 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
     setIsExporting(true);
     setProgressPercent(0);
     setExportComplete(false);
-    setCurrentStepText('Pre-loading audio streams & initializing gapless engine...');
+    setCurrentStepText('Pre-loading background assets & initializing audio engine...');
+
+    // Pre-warm and ensure all background images are cached
+    preloadAllBackgroundImages();
 
     const canvas = exportCanvasRef.current || document.createElement('canvas');
     const isPortrait = config.aspectRatio === '9:16';
-    // Use 720p for draft quality for 3x faster rendering, 1080p for full HD
-    canvas.width = config.draftQuality ? (isPortrait ? 720 : 1280) : (isPortrait ? 1080 : 1920);
-    canvas.height = config.draftQuality ? (isPortrait ? 1280 : 720) : (isPortrait ? 1920 : 1080);
+    const isFast = exportQuality === 'fast';
+
+    canvas.width = isFast ? (isPortrait ? 720 : 1280) : (isPortrait ? 1080 : 1920);
+    canvas.height = isFast ? (isPortrait ? 1280 : 720) : (isPortrait ? 1920 : 1080);
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -61,14 +67,13 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
     }
     const destNode = audioCtx.createMediaStreamDestination();
 
-    // 1. Pre-fetch and decode all audio buffers in batched chunks for max speed & socket stability
     const totalAyahs = ayahsInRange.length;
-    setCurrentStepText(`Loading audio streams for ${totalAyahs} verses...`);
+    setCurrentStepText(`Fetching audio streams in parallel for ${totalAyahs} verses...`);
     setProgressPercent(10);
 
-    // Pre-fetch Bismillah buffer if needed (Surah != 1 and Surah != 9)
-    let bismillahBuffer: AudioBuffer | null = null;
-    const bismillahPromise = (surah.number !== 1 && surah.number !== 9)
+    // 1. Parallel fetch Bismillah buffer if needed
+    const needsBismillah = surah.number !== 1 && surah.number !== 9;
+    const bismillahPromise = needsBismillah
       ? fetchAudioBuffer(
           audioCtx,
           config.audioMode === 'translation-only' ? 'Alafasy_128kbps' : config.reciterFolder,
@@ -80,56 +85,169 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
         )
       : Promise.resolve(null);
 
-    let loadedCount = 0;
-    const BATCH_SIZE = 6;
-    const verseAudioResults: { num: number; aBuf: AudioBuffer | null; tBuf: AudioBuffer | null }[] = [];
+    // 2. Parallel fetch ALL verse audio buffers at once (No slow sequential batching)
+    let completedDownloads = 0;
+    const verseAudioPromises = ayahsInRange.map(async (ayah) => {
+      let aBuf: AudioBuffer | null = null;
+      let tBuf: AudioBuffer | null = null;
 
-    for (let i = 0; i < ayahsInRange.length; i += BATCH_SIZE) {
-      const batch = ayahsInRange.slice(i, i + BATCH_SIZE);
-      const batchRes = await Promise.all(
-        batch.map(async (ayah) => {
-          let aBuf: AudioBuffer | null = null;
-          let tBuf: AudioBuffer | null = null;
+      if (config.audioMode === 'recitation' || config.audioMode === 'both') {
+        aBuf = await fetchAudioBuffer(
+          audioCtx,
+          config.reciterFolder,
+          surah.number,
+          ayah.num,
+          config.gaplessAudio
+        );
+      }
 
-          if (config.audioMode === 'recitation' || config.audioMode === 'both') {
-            aBuf = await fetchAudioBuffer(
-              audioCtx,
-              config.reciterFolder,
-              surah.number,
-              ayah.num,
-              config.gaplessAudio
-            );
-          }
+      if (config.audioMode === 'both' || config.audioMode === 'translation-only') {
+        const translationText = getAyahTranslationText(ayah, config.translationLang);
+        tBuf = await fetchAudioBuffer(
+          audioCtx,
+          config.translationReciterFolder,
+          surah.number,
+          ayah.num,
+          config.gaplessAudio,
+          translationText,
+          config.translationLang
+        );
+      }
 
-          if (config.audioMode === 'both' || config.audioMode === 'translation-only') {
-            const translationText = getAyahTranslationText(ayah, config.translationLang);
-            tBuf = await fetchAudioBuffer(
-              audioCtx,
-              config.translationReciterFolder,
-              surah.number,
-              ayah.num,
-              config.gaplessAudio,
-              translationText,
-              config.translationLang
-            );
-          }
+      completedDownloads++;
+      const pct = Math.round((completedDownloads / totalAyahs) * 20) + 10;
+      setProgressPercent(pct);
+      setCurrentStepText(`Loading audio streams (${completedDownloads}/${totalAyahs} ready)...`);
 
-          loadedCount++;
-          const pct = Math.round((loadedCount / totalAyahs) * 20) + 10;
-          setProgressPercent(pct);
-          setCurrentStepText(`Loading audio streams (${loadedCount}/${totalAyahs} verses ready)...`);
+      return { num: ayah.num, ayah, aBuf, tBuf };
+    });
 
-          return { num: ayah.num, aBuf, tBuf };
-        })
-      );
-      verseAudioResults.push(...batchRes);
+    const [bismillahBuffer, verseAudioResults] = await Promise.all([
+      bismillahPromise,
+      Promise.all(verseAudioPromises)
+    ]);
+
+    setCurrentStepText('Stitching audio track into gapless master timeline...');
+    setProgressPercent(30);
+
+    // 3. Build Master Audio Buffer and Timeline
+    const sampleRate = audioCtx.sampleRate;
+    const introSilenceSec = isFast ? 0.6 : 0.8;
+    const interGapSec = 0.05; // Tight 50ms gap between verses for smooth transitions
+
+    interface TimelineItem {
+      type: 'title' | 'bismillah' | 'ayah';
+      ayah?: typeof ayahsInRange[0];
+      index?: number;
+      startTime: number;
+      endTime: number;
+      duration: number;
     }
 
-    bismillahBuffer = await bismillahPromise;
-    const arabicBuffers: (AudioBuffer | null)[] = verseAudioResults.map(r => r.aBuf);
-    const translationBuffers: (AudioBuffer | null)[] = verseAudioResults.map(r => r.tBuf);
+    const itemsToStitch: { type: 'bismillah' | 'ayah'; ayah?: typeof ayahsInRange[0]; index?: number; buffer: AudioBuffer | null; durationFallback: number }[] = [];
 
-    // Combine canvas video stream + Web Audio media stream destination
+    if (needsBismillah) {
+      itemsToStitch.push({
+        type: 'bismillah',
+        buffer: bismillahBuffer,
+        durationFallback: 2.2
+      });
+    }
+
+    verseAudioResults.forEach((res, idx) => {
+      if (res.aBuf) {
+        itemsToStitch.push({
+          type: 'ayah',
+          ayah: res.ayah,
+          index: idx,
+          buffer: res.aBuf,
+          durationFallback: 2.5
+        });
+      }
+      if (res.tBuf) {
+        itemsToStitch.push({
+          type: 'ayah',
+          ayah: res.ayah,
+          index: idx,
+          buffer: res.tBuf,
+          durationFallback: 2.5
+        });
+      }
+      if (!res.aBuf && !res.tBuf) {
+        itemsToStitch.push({
+          type: 'ayah',
+          ayah: res.ayah,
+          index: idx,
+          buffer: null,
+          durationFallback: 2.5
+        });
+      }
+    });
+
+    // Compute total duration
+    let totalDuration = introSilenceSec;
+    itemsToStitch.forEach((item) => {
+      const dur = item.buffer ? item.buffer.duration : item.durationFallback;
+      totalDuration += dur + interGapSec;
+    });
+
+    const totalSamples = Math.ceil(totalDuration * sampleRate);
+    const numChannels = 2;
+    const masterBuffer = audioCtx.createBuffer(numChannels, totalSamples, sampleRate);
+
+    const timeline: TimelineItem[] = [];
+    timeline.push({
+      type: 'title',
+      startTime: 0,
+      endTime: introSilenceSec,
+      duration: introSilenceSec
+    });
+
+    let currentOffset = Math.round(introSilenceSec * sampleRate);
+
+    itemsToStitch.forEach((item) => {
+      const dur = item.buffer ? item.buffer.duration : item.durationFallback;
+      const st = currentOffset / sampleRate;
+      const et = st + dur;
+
+      timeline.push({
+        type: item.type,
+        ayah: item.ayah,
+        index: item.index,
+        startTime: st,
+        endTime: et,
+        duration: dur
+      });
+
+      if (item.buffer) {
+        const copyLen = Math.min(item.buffer.length, totalSamples - currentOffset);
+        for (let c = 0; c < numChannels; c++) {
+          const srcData = item.buffer.getChannelData(c % item.buffer.numberOfChannels);
+          const destData = masterBuffer.getChannelData(c);
+          destData.set(srcData.subarray(0, copyLen), currentOffset);
+        }
+      }
+
+      currentOffset += Math.round((dur + interGapSec) * sampleRate);
+    });
+
+    // Generate subtitle cues from timeline entries
+    const cues: SubtitleCue[] = [];
+    const ayahsSeen = new Set<number>();
+    timeline.forEach((item) => {
+      if (item.type === 'ayah' && item.ayah && !ayahsSeen.has(item.ayah.num)) {
+        ayahsSeen.add(item.ayah.num);
+        cues.push({
+          index: item.ayah.num,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          arabicText: stripBismillahFromAyah1(item.ayah.arabic, surah.number, item.ayah.num),
+          translationText: getAyahTranslationText(item.ayah, config.translationLang)
+        });
+      }
+    });
+
+    // 4. Setup MediaRecorder
     const stream = canvas.captureStream(30);
     const combinedTracks = [
       ...stream.getVideoTracks(),
@@ -147,7 +265,7 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
 
       mediaRecorder = new MediaRecorder(mediaStream, {
         mimeType,
-        videoBitsPerSecond: config.draftQuality ? 2500000 : 8000000
+        videoBitsPerSecond: isFast ? 3000000 : 7000000
       });
     } catch (e) {
       mediaRecorder = new MediaRecorder(mediaStream);
@@ -162,106 +280,56 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
 
     mediaRecorder.start(100);
 
-    const cues: SubtitleCue[] = [];
-    let currentTime = 0;
+    // 5. Connect and start Master Audio playback
+    const masterSource = audioCtx.createBufferSource();
+    masterSource.buffer = masterBuffer;
+    masterSource.connect(audioCtx.destination);
+    masterSource.connect(destNode);
 
-    // 2. Render Title Frame (1.2 seconds for fast generation)
-    setCurrentStepText('Rendering Title Intro Frame...');
-    const titleStartMs = Date.now();
-    const titleDurationMs = config.draftQuality ? 1000 : 1400;
-    const titleInterval = setInterval(() => {
-      const elapsed = Date.now() - titleStartMs;
-      const p = config.textAnimation === 'none' ? 1.0 : Math.min(1.0, elapsed / 400);
-      drawTitleFrame(ctx, canvas.width, canvas.height, surah, config, p, Date.now());
-    }, 30);
-    await new Promise((r) => setTimeout(r, titleDurationMs));
-    clearInterval(titleInterval);
-    currentTime += (titleDurationMs / 1000);
+    const startAudioTime = audioCtx.currentTime;
+    masterSource.start(0);
 
-    // 3. Render Bismillah Frame & Recite Bismillah if not Surah 1 or 9
-    if (surah.number !== 1 && surah.number !== 9) {
-      setCurrentStepText('Reciting Bismillah ir-Rahman ir-Rahim...');
-      const bisStartMs = Date.now();
-      const bisInterval = setInterval(() => {
-        const elapsed = Date.now() - bisStartMs;
-        const p = config.textAnimation === 'none' ? 1.0 : Math.min(1.0, elapsed / 400);
-        drawBismillahFrame(ctx, canvas.width, canvas.height, config, p, Date.now());
-      }, 30);
+    setCurrentStepText('Rendering & recording fast video stream...');
 
-      if (bismillahBuffer) {
-        const { promise } = playAudioBufferSegment(audioCtx, bismillahBuffer, destNode);
-        await promise;
-        currentTime += bismillahBuffer.duration;
-      } else {
-        await new Promise((r) => setTimeout(r, 2200));
-        currentTime += 2.2;
-      }
-      clearInterval(bisInterval);
-    }
+    // 6. High-Performance Render Loop driven by master audio clock
+    await new Promise<void>((resolve) => {
+      const renderInterval = setInterval(() => {
+        const elapsed = audioCtx.currentTime - startAudioTime;
+        const pct = Math.min(98, Math.round((elapsed / totalDuration) * 65) + 30);
+        setProgressPercent(pct);
 
-    // 4. Render Ayah Frames Verse by Verse with 0ms Gapless Web Audio Sync & Text Animations
-    for (let i = 0; i < totalAyahs; i++) {
-      const ayah = ayahsInRange[i];
-      const ayahNum = ayah.num;
-      const stepPct = 30 + Math.round(((i + 1) / totalAyahs) * 65);
-      setProgressPercent(stepPct);
-      setCurrentStepText(`Stitching Verse ${ayahNum} of ${surah.numberOfAyahs} (Gapless)...`);
+        // Find active timeline item
+        let activeItem = timeline.find((t) => elapsed >= t.startTime && elapsed < t.endTime);
+        if (!activeItem) {
+          activeItem = elapsed < introSilenceSec ? timeline[0] : timeline[timeline.length - 1];
+        }
 
-      const frameStartMs = Date.now();
-      const startTime = currentTime;
-      const aBuf = arabicBuffers[i];
-      const tBuf = translationBuffers[i];
-      const estimatedAudioSec = aBuf ? aBuf.duration : (tBuf ? tBuf.duration : 2.5);
+        if (activeItem.type === 'title') {
+          const p = Math.min(1.0, elapsed / 0.4);
+          drawTitleFrame(ctx, canvas.width, canvas.height, surah, config, p, Date.now());
+        } else if (activeItem.type === 'bismillah') {
+          const p = Math.min(1.0, (elapsed - activeItem.startTime) / 0.4);
+          drawBismillahFrame(ctx, canvas.width, canvas.height, config, p, Date.now());
+        } else if (activeItem.type === 'ayah' && activeItem.ayah) {
+          const itemElapsed = elapsed - activeItem.startTime;
+          const audioProgress = Math.min(1.0, Math.max(0.0, itemElapsed / activeItem.duration));
+          const p = Math.min(1.0, itemElapsed / 0.35);
+          drawAyahFrame(ctx, canvas.width, canvas.height, surah, activeItem.ayah, config, p, Date.now(), audioProgress);
+        }
 
-      const ayahInterval = setInterval(() => {
-        const elapsed = Date.now() - frameStartMs;
-        const p = config.textAnimation === 'none' ? 1.0 : Math.min(1.0, elapsed / 400);
-        const audioProgress = Math.min(1.0, Math.max(0.0, (elapsed / 1000) / estimatedAudioSec));
-        drawAyahFrame(ctx, canvas.width, canvas.height, surah, ayah, config, p, Date.now(), audioProgress);
-      }, 30);
+        if (elapsed >= totalDuration) {
+          clearInterval(renderInterval);
+          resolve();
+        }
+      }, 33);
+    });
 
-      // Draw immediate initial frame
-      drawAyahFrame(ctx, canvas.width, canvas.height, surah, ayah, config, 0.5, Date.now(), 0);
-
-      // Play Arabic Qari buffer if present
-      if (aBuf) {
-        const { promise } = playAudioBufferSegment(audioCtx, aBuf, destNode);
-        await promise;
-        currentTime += aBuf.duration;
-      }
-
-      // Play Translation Reciter buffer if present
-      if (tBuf) {
-        const { promise } = playAudioBufferSegment(audioCtx, tBuf, destNode);
-        await promise;
-        currentTime += tBuf.duration;
-      }
-
-      // Fallback if no buffer loaded
-      if (!aBuf && !tBuf) {
-        await new Promise((r) => setTimeout(r, 2400));
-        currentTime += 2.4;
-      }
-
-      clearInterval(ayahInterval);
-      drawAyahFrame(ctx, canvas.width, canvas.height, surah, ayah, config, 1.0, Date.now(), 1.0);
-
-      const endTime = currentTime;
-      cues.push({
-        index: i + 1,
-        startTime,
-        endTime,
-        arabicText: stripBismillahFromAyah1(ayah.arabic, surah.number, ayah.num),
-        translationText: getAyahTranslationText(ayah, config.translationLang)
-      });
-    }
-
-    // 5. Wrap Up Recording
+    // 7. Finalize Recording
     setCurrentStepText('Finalizing video file & subtitles...');
     setProgressPercent(100);
     mediaRecorder.stop();
 
-    await new Promise((r) => setTimeout(r, 600));
+    await new Promise((r) => setTimeout(r, 400));
 
     const finalBlob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
     const videoUrl = URL.createObjectURL(finalBlob);
@@ -281,7 +349,7 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
       surahName: surah.englishName,
       surahNumber: surah.number,
       aspectRatio: config.aspectRatio,
-      duration: Math.round(currentTime),
+      duration: Math.round(totalDuration),
       blobUrl: videoUrl,
       fileSize: sizeInMB,
       createdAt: new Date().toLocaleDateString('en-US', {
@@ -438,17 +506,17 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
 
         {/* State 1: Before Export Starts */}
         {!isExporting && !exportComplete && (
-          <div className="bg-[#141e33] p-4 rounded-xl border border-slate-800 space-y-4">
-            <div className="text-xs text-slate-300 space-y-2">
-              <div className="flex justify-between border-b border-slate-800 pb-2">
+          <div className="bg-[#141e33] p-4.5 rounded-xl border border-slate-800 space-y-4">
+            <div className="text-xs text-slate-300 space-y-2.5">
+              <div className="flex justify-between border-b border-slate-800/80 pb-2">
                 <span className="text-slate-400">Reciter:</span>
                 <span className="font-semibold text-amber-300">{config.reciterName}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-800 pb-2">
+              <div className="flex justify-between border-b border-slate-800/80 pb-2">
                 <span className="text-slate-400">Format:</span>
                 <span className="font-semibold text-slate-200">{config.aspectRatio} ({config.aspectRatio === '9:16' ? 'Vertical Shorts' : '16:9 Landscape'})</span>
               </div>
-              <div className="flex justify-between border-b border-slate-800 pb-2">
+              <div className="flex justify-between border-b border-slate-800/80 pb-2">
                 <span className="text-slate-400">Theme:</span>
                 <span className="font-semibold text-slate-200">{config.videoStyle}</span>
               </div>
@@ -458,12 +526,54 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
               </div>
             </div>
 
+            {/* Rendering Speed & Quality Mode Selector */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-amber-400/90 flex items-center gap-1">
+                <span>⚡ Rendering Speed & Resolution</span>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExportQuality('fast')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    exportQuality === 'fast'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-200 shadow-sm'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-slate-100 flex items-center gap-1">
+                    <span>⚡ Ultra-Fast Stitching</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    720p HD • Instant parallel fetch &amp; fast render
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setExportQuality('hd')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    exportQuality === 'hd'
+                      ? 'bg-amber-500/15 border-amber-500 text-amber-200 shadow-sm'
+                      : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="text-xs font-bold text-slate-100 flex items-center gap-1">
+                    <span>🎬 Full HD 1080p</span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    1080p Ultra Quality • Maximum fidelity
+                  </p>
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={handleStartExport}
-              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/25 transition-all flex items-center justify-center gap-2 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
             >
               <Play className="w-4 h-4 fill-current" />
-              <span>Start 1-Click Video Rendering</span>
+              <span>Start Fast Video Export</span>
             </button>
           </div>
         )}

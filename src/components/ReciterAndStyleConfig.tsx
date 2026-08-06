@@ -50,74 +50,152 @@ const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: str
 
 const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; previewUrl: string }[] = [
   {
+    id: 'holy-kaaba',
+    name: '🕋 Holy Kaaba at Night (Makkah)',
+    desc: 'Golden illuminated Holy Kaaba in Masjid al-Haram at night',
+    previewUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'madinah-prophet-mosque',
+    name: '🕌 Prophet’s Mosque (Madinah)',
+    desc: 'Illuminated courtyard & minarets of Masjid an-Nabawi in Madinah',
+    previewUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'madinah-mosque-dusk',
+    name: '🕌 Madinah Mosque Twilight',
+    desc: 'Peaceful twilight sky over Madinah al-Munawwarah mosque',
+    previewUrl: 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'noble-quran',
+    name: '📖 Noble Quran on Wooden Rahl',
+    desc: 'Holy Quran manuscript open on carved wooden stand with warm light',
+    previewUrl: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'quran-tazkeer-bookmark',
+    name: '📖 Open Quran & Ribbon Bookmark',
+    desc: 'Beautiful open Holy Quran with gold rosette page marker',
+    previewUrl: 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'ramadan-lantern',
+    name: '🌙 Ramadan Lantern (Fanous)',
+    desc: 'Glowing golden Ramadan lantern with warm spiritual light',
+    previewUrl: 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'grand-mosque',
+    name: '🕌 Grand Mosque Domes',
+    desc: 'Majestic mosque domes & illuminated minarets against twilight sky',
+    previewUrl: 'https://images.unsplash.com/photo-1542810634-71277d95dcbb?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'blue-mosque-istanbul',
+    name: '🕌 Sultanahmet Blue Mosque',
+    desc: 'Iconic minarets & dome silhouette against golden sunset sky',
+    previewUrl: 'https://images.unsplash.com/photo-1574246604907-db69e30ddb97?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'sheikh-zayed-mosque',
+    name: '🕌 Sheikh Zayed Grand Mosque',
+    desc: 'Pristine white marble arches & reflective water pools',
+    previewUrl: 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'mosque-arches',
+    name: '✨ Illuminated Mosque Arches',
+    desc: 'Intricate golden Islamic arches and vaulted hallways',
+    previewUrl: 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'mosque-interior',
+    name: '🕌 Sacred Mosque Interior',
+    desc: 'Warm ambient prayer hall with golden carpets & soft chandeliers',
+    previewUrl: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'mosque-minaret-sky',
+    name: '🕌 Minaret Silhouette at Sunset',
+    desc: 'Golden sunset sky framing a peaceful mosque minaret',
+    previewUrl: 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'islamic-pattern',
+    name: '✨ Islamic Arabesque Mosaic',
+    desc: 'Intricate arabesque mosaics, golden star lattice & arched architecture',
+    previewUrl: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=300&auto=format&fit=crop'
+  },
+  {
     id: 'starry-night',
-    name: 'Starry Cosmic Sky',
+    name: '🌌 Starry Cosmic Sky',
     desc: 'Deep dark night sky filled with glowing stars & stardust',
     previewUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'golden-desert',
-    name: 'Golden Desert Sunset',
+    name: '🏜️ Golden Desert Sunset',
     desc: 'Majestic rolling sand dunes under warm sunset light rays',
     previewUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'divine-sky',
-    name: 'Divine Sun Rays & Sky',
+    name: '🌤️ Divine Sun Rays & Sky',
     desc: 'Peaceful sky with golden sunbeams breaking through soft clouds',
     previewUrl: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'misty-nature',
-    name: 'Misty Forest Canopy',
+    name: '🌲 Misty Forest Canopy',
     desc: 'Serene emerald pine forest trees & peaceful misty mountains',
     previewUrl: 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'peaceful-ocean',
-    name: 'Peaceful Ocean Waves',
+    name: '🌊 Peaceful Ocean Waves',
     desc: 'Calm turquoise sea horizon & soothing ocean water',
     previewUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'glowing-waterfall',
-    name: 'Mountain Waterfall & River',
+    name: '🏞️ Mountain Waterfall & River',
     desc: 'Cascading forest waterfall and crystalline natural stream',
     previewUrl: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'blooming-garden',
-    name: 'Lush Forest Greenery',
+    name: '🌿 Lush Forest Greenery',
     desc: 'Fresh green leaves and soft dappled forest sunlight',
     previewUrl: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'cosmic-nebula',
-    name: 'Deep Space Nebula',
+    name: '✨ Deep Space Nebula',
     desc: 'Stunning celestial gas nebula & distant galaxy light',
     previewUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'snowy-mountains',
-    name: 'Majestic Snowy Peaks',
+    name: '🏔️ Majestic Snowy Peaks',
     desc: 'Alpine snow-capped mountain peaks bathed in soft sunrise',
     previewUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'emerald-valley',
-    name: 'Emerald Mountain Lake',
+    name: '⛰️ Emerald Mountain Lake',
     desc: 'Crystalline mountain mirror lake reflecting green valleys',
     previewUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'aurora-borealis',
-    name: 'Northern Aurora Sky',
+    name: '🌌 Northern Aurora Sky',
     desc: 'Dancing green celestial aurora lights over quiet night landscape',
     previewUrl: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'none',
-    name: 'None (Gradient Solid)',
+    name: '🎨 Solid Color Theme (No Photo)',
     desc: 'Clean color theme without background photography',
     previewUrl: ''
   }

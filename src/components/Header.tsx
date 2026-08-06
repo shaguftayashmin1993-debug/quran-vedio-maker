@@ -1,13 +1,21 @@
 import React from 'react';
-import { Film, Sparkles, BookOpen, Mic, FolderHeart } from 'lucide-react';
+import { Film, Sparkles, BookOpen, Mic, FolderHeart, RotateCcw } from 'lucide-react';
 
 interface HeaderProps {
   activeTab: 'studio' | 'audio' | 'library';
   setActiveTab: (tab: 'studio' | 'audio' | 'library') => void;
   savedCount: number;
+  hasIncompleteTask?: boolean;
+  onResumeTaskClick?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, savedCount }) => {
+export const Header: React.FC<HeaderProps> = ({
+  activeTab,
+  setActiveTab,
+  savedCount,
+  hasIncompleteTask,
+  onResumeTaskClick
+}) => {
   return (
     <header className="sticky top-0 z-40 bg-[#0b1220]/90 backdrop-blur-md border-b border-amber-500/20 px-4 lg:px-8 py-3.5">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -33,49 +41,62 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, savedCo
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <nav className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
-          <button
-            onClick={() => setActiveTab('studio')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'studio'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            <span>Studio Creator</span>
-          </button>
+        {/* Navigation Tabs & Resume Task Button */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {hasIncompleteTask && onResumeTaskClick && (
+            <button
+              onClick={onResumeTaskClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-semibold shadow-md shadow-amber-500/10 transition-all animate-pulse"
+              title="Resume incomplete or previous video task"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Resume Last Task</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('audio')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'audio'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <Mic className="w-4 h-4" />
-            <span>From Audio / Mic</span>
-          </button>
+          <nav className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+            <button
+              onClick={() => setActiveTab('studio')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'studio'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>Studio Creator</span>
+            </button>
 
-          <button
-            onClick={() => setActiveTab('library')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
-              activeTab === 'library'
-                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
-            }`}
-          >
-            <FolderHeart className="w-4 h-4" />
-            <span>My Videos</span>
-            {savedCount > 0 && (
-              <span className="px-1.5 py-0.2 text-[10px] bg-amber-400 text-slate-950 rounded-full font-bold">
-                {savedCount}
-              </span>
-            )}
-          </button>
-        </nav>
+            <button
+              onClick={() => setActiveTab('audio')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'audio'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <Mic className="w-4 h-4" />
+              <span>From Audio / Mic</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('library')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+                activeTab === 'library'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+              }`}
+            >
+              <FolderHeart className="w-4 h-4" />
+              <span>My Videos</span>
+              {savedCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] bg-amber-400 text-slate-950 rounded-full font-bold">
+                  {savedCount}
+                </span>
+              )}
+            </button>
+          </nav>
+        </div>
       </div>
     </header>
   );

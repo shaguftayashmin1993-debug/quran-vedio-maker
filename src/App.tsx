@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Surah, VideoConfig, SavedVideo } from './types';
+import { Surah, VideoConfig, SavedVideo, SavedTaskSession } from './types';
 import { SURAHS, SurahMeta } from './data/surahs';
 import { RECITERS, TRANSLATION_RECITERS } from './data/reciters';
 import { Header } from './components/Header';
@@ -9,9 +9,22 @@ import { LiveStudioPreview } from './components/LiveStudioPreview';
 import { VideoExporterModal } from './components/VideoExporterModal';
 import { FromAudioRecorder } from './components/FromAudioRecorder';
 import { LibraryTab } from './components/LibraryTab';
+import { ResumeTaskBanner } from './components/ResumeTaskBanner';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'studio' | 'audio' | 'library'>('studio');
+
+  // Task Session (Draft Checkpoint / Unfinished Task) State
+  const [taskSession, setTaskSession] = useState<SavedTaskSession | null>(() => {
+    try {
+      const stored = localStorage.getItem('quran_video_maker_task_session');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isTaskSavedJustNow, setIsTaskSavedJustNow] = useState<boolean>(false);
 
   // Selected Surah Meta
   const [selectedMeta, setSelectedMeta] = useState<SurahMeta>(SURAHS[17]); // Default: Surah Al-Kahf (18)
@@ -43,6 +56,27 @@ export default function App() {
     gaplessAudio: true
   });
 
+  // Auto-save current state as a background task checkpoint
+  useEffect(() => {
+    const activeSession: SavedTaskSession = {
+      id: 'current-task',
+      surahNumber: selectedMeta.number,
+      surahName: selectedMeta.name,
+      englishName: selectedMeta.englishName,
+      startAyah: config.startAyah,
+      endAyah: config.endAyah,
+      config,
+      updatedAt: new Date().toISOString(),
+      status: 'draft'
+    };
+
+    try {
+      localStorage.setItem('quran_video_maker_active_draft', JSON.stringify(activeSession));
+    } catch (e) {
+      console.warn('Could not auto-save draft session:', e);
+    }
+  }, [selectedMeta, config]);
+
   // Export Modal State
   const [isExportModalOpen, setIsExportModalOpen] = useState<boolean>(false);
 
@@ -64,6 +98,49 @@ export default function App() {
       console.warn('Could not save video library to localStorage:', e);
     }
   }, [savedVideos]);
+
+  const handleResumeTask = (session: SavedTaskSession) => {
+    const foundSurah = SURAHS.find((s) => s.number === session.surahNumber);
+    if (foundSurah) {
+      setSelectedMeta(foundSurah);
+    }
+    if (session.config) {
+      setConfig(session.config);
+    }
+    setActiveTab('studio');
+  };
+
+  const handleDiscardTask = () => {
+    setTaskSession(null);
+    try {
+      localStorage.removeItem('quran_video_maker_task_session');
+      localStorage.removeItem('quran_video_maker_active_draft');
+    } catch (e) {
+      console.warn('Could not discard task session:', e);
+    }
+  };
+
+  const handleManualSaveTask = () => {
+    const session: SavedTaskSession = {
+      id: `task-${Date.now()}`,
+      surahNumber: selectedMeta.number,
+      surahName: selectedMeta.name,
+      englishName: selectedMeta.englishName,
+      startAyah: config.startAyah,
+      endAyah: config.endAyah,
+      config,
+      updatedAt: new Date().toISOString(),
+      status: 'draft'
+    };
+    setTaskSession(session);
+    setIsTaskSavedJustNow(true);
+    try {
+      localStorage.setItem('quran_video_maker_task_session', JSON.stringify(session));
+    } catch (e) {
+      console.warn('Could not save task checkpoint:', e);
+    }
+    setTimeout(() => setIsTaskSavedJustNow(false), 3000);
+  };
 
   // Fetch Surah details when selectedMeta changes
   const fetchSurahDetails = useCallback(async (meta: SurahMeta) => {
@@ -142,9 +219,20 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         savedCount={savedVideos.length}
+        hasIncompleteTask={!!taskSession}
+        onResumeTaskClick={() => taskSession && handleResumeTask(taskSession)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
+        {/* RESUME TASK / CHECKPOINT BANNER */}
+        <ResumeTaskBanner
+          taskSession={taskSession}
+          onResumeTask={handleResumeTask}
+          onDiscardTask={handleDiscardTask}
+          onManualSaveTask={handleManualSaveTask}
+          isTaskSavedJustNow={isTaskSavedJustNow}
+        />
+
         {/* TAB 1: STUDIO CREATOR */}
         {activeTab === 'studio' && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

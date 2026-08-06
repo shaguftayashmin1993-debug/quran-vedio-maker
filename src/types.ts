@@ -70,6 +70,19 @@ export type TextAnimation = 'fade-scale' | 'slide-up' | 'glow-pulse' | 'none';
 
 export type BgImageCategory =
   | 'none'
+  | 'holy-kaaba'
+  | 'madinah-prophet-mosque'
+  | 'madinah-mosque-dusk'
+  | 'noble-quran'
+  | 'quran-tazkeer-bookmark'
+  | 'ramadan-lantern'
+  | 'grand-mosque'
+  | 'blue-mosque-istanbul'
+  | 'sheikh-zayed-mosque'
+  | 'mosque-arches'
+  | 'mosque-interior'
+  | 'mosque-minaret-sky'
+  | 'islamic-pattern'
   | 'starry-night'
   | 'golden-desert'
   | 'divine-sky'
@@ -117,4 +130,21 @@ export interface SavedVideo {
   fileSize: string;
   createdAt: string;
   thumbnailUrl?: string;
+}
+
+export interface SavedTaskSession {
+  id: string;
+  surahNumber: number;
+  surahName: string;
+  englishName: string;
+  startAyah: number;
+  endAyah: number;
+  config: VideoConfig;
+  updatedAt: string;
+  status: 'draft' | 'incomplete_export' | 'exported';
+  lastExportProgress?: {
+    stepText?: string;
+    completedVerses?: number;
+    totalVerses?: number;
+  };
 }

@@ -7,8 +7,21 @@ export function toArabicDigits(num: number): string {
   return String(num).replace(/[0-9]/g, (w) => digits[parseInt(w, 10)]);
 }
 
-// Curated royalty-free pure natural scenery background image URLs (Strictly NO humans, NO animals)
+// Curated royalty-free Islamic & pure natural scenery background image URLs (Strictly NO humans, NO animals)
 const BG_IMAGE_URLS: Record<string, string> = {
+  'holy-kaaba': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=1200&auto=format&fit=crop',
+  'madinah-prophet-mosque': 'https://images.unsplash.com/photo-1519817650390-64a93db51149?q=80&w=1200&auto=format&fit=crop',
+  'madinah-mosque-dusk': 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=80&w=1200&auto=format&fit=crop',
+  'noble-quran': 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?q=80&w=1200&auto=format&fit=crop',
+  'quran-tazkeer-bookmark': 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=1200&auto=format&fit=crop',
+  'ramadan-lantern': 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=80&w=1200&auto=format&fit=crop',
+  'grand-mosque': 'https://images.unsplash.com/photo-1542810634-71277d95dcbb?q=80&w=1200&auto=format&fit=crop',
+  'blue-mosque-istanbul': 'https://images.unsplash.com/photo-1574246604907-db69e30ddb97?q=80&w=1200&auto=format&fit=crop',
+  'sheikh-zayed-mosque': 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=80&w=1200&auto=format&fit=crop',
+  'mosque-arches': 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=1200&auto=format&fit=crop',
+  'mosque-interior': 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=80&w=1200&auto=format&fit=crop',
+  'mosque-minaret-sky': 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=80&w=1200&auto=format&fit=crop',
+  'islamic-pattern': 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=1200&auto=format&fit=crop',
   'starry-night': 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=1200&auto=format&fit=crop',
   'golden-desert': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1200&auto=format&fit=crop',
   'divine-sky': 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?q=80&w=1200&auto=format&fit=crop',
@@ -23,6 +36,19 @@ const BG_IMAGE_URLS: Record<string, string> = {
 };
 
 export const SCENERY_ROTATION_LIST: VideoConfig['bgImageCategory'][] = [
+  'holy-kaaba',
+  'madinah-prophet-mosque',
+  'madinah-mosque-dusk',
+  'noble-quran',
+  'quran-tazkeer-bookmark',
+  'ramadan-lantern',
+  'grand-mosque',
+  'blue-mosque-istanbul',
+  'sheikh-zayed-mosque',
+  'mosque-arches',
+  'mosque-interior',
+  'mosque-minaret-sky',
+  'islamic-pattern',
   'starry-night',
   'golden-desert',
   'divine-sky',
@@ -37,6 +63,21 @@ export const SCENERY_ROTATION_LIST: VideoConfig['bgImageCategory'][] = [
 ];
 
 const imageCacheMap = new Map<string, HTMLImageElement>();
+
+export function preloadAllBackgroundImages() {
+  if (typeof window === 'undefined') return;
+  Object.entries(BG_IMAGE_URLS).forEach(([category, url]) => {
+    if (!imageCacheMap.has(category)) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = url;
+      imageCacheMap.set(category, img);
+    }
+  });
+}
+
+// Immediately trigger background image preloading for lightning-fast rendering
+preloadAllBackgroundImages();
 
 function getBackgroundImage(category: string): HTMLImageElement | null {
   if (!category || category === 'none') return null;
@@ -433,19 +474,19 @@ export function drawTitleFrame(
 
   // Decorative emblem / Surah Arabic Name
   const centerY = isPortrait ? height * 0.40 : height * 0.38;
-  const arabicTitleFontSize = isPortrait ? Math.round(width * 0.10) : Math.round(height * 0.12);
+  const arabicTitleFontSize = isPortrait ? Math.round(width * 0.12) : Math.round(height * 0.14);
   ctx.font = `600 ${arabicTitleFontSize}px 'Amiri', 'Amiri Quran', serif`;
   ctx.fillStyle = goldColor;
   ctx.fillText(surah.name, width / 2, centerY);
 
   // Subtitle / English Name
   const subY = isPortrait ? height * 0.52 : height * 0.54;
-  const englishTitleFontSize = isPortrait ? Math.round(width * 0.052) : Math.round(height * 0.046);
+  const englishTitleFontSize = isPortrait ? Math.round(width * 0.062) : Math.round(height * 0.056);
   ctx.font = `600 ${englishTitleFontSize}px 'Playfair Display', Georgia, serif`;
   ctx.fillStyle = textColor;
   ctx.fillText(`Surah ${surah.englishName}`, width / 2, subY);
 
-  const metaFontSize = isPortrait ? Math.round(width * 0.032) : Math.round(height * 0.030);
+  const metaFontSize = isPortrait ? Math.round(width * 0.038) : Math.round(height * 0.036);
   ctx.font = `500 ${metaFontSize}px 'Plus Jakarta Sans', sans-serif`;
   ctx.fillStyle = subColor;
   ctx.fillText(`"${surah.englishNameTranslation}" • ${surah.numberOfAyahs} Verses • ${surah.revelationType}`, width / 2, subY + height * 0.055);
@@ -488,7 +529,7 @@ export function drawBismillahFrame(
   applyTextAnimation(ctx, width, height, config.textAnimation, animProgress, animTime);
 
   const isPortrait = config.aspectRatio === '9:16';
-  const bismillahFontSize = isPortrait ? Math.round(width * 0.062) : Math.round(height * 0.085);
+  const bismillahFontSize = isPortrait ? Math.round(width * 0.078) : Math.round(height * 0.105);
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -534,6 +575,7 @@ export function drawAyahFrame(
     config.animatedSceneryEffects !== false
   );
 
+  const isPortrait = config.aspectRatio === '9:16';
   const hasBgImg = activeBgCategory && activeBgCategory !== 'none';
   const isLight = !hasBgImg && (config.videoStyle === 'classic-mushaf' || config.videoStyle === 'parchment-mushaf' || config.videoStyle === 'quran-page');
   const textColor = hasBgImg ? '#ffffff' : config.videoStyle === 'quran-page' ? '#120d08' : isLight ? '#1a140c' : '#f8f6f0';
@@ -542,7 +584,6 @@ export function drawAyahFrame(
 
   applyTextAnimation(ctx, width, height, config.textAnimation, animProgress, animTime);
 
-  const isPortrait = config.aspectRatio === '9:16';
   const marginX = width * (isPortrait ? 0.08 : 0.07);
   const maxW = width - marginX * 2;
 
@@ -555,11 +596,11 @@ export function drawAyahFrame(
     const bannerY = pad + 18;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.font = `bold ${Math.round(isPortrait ? width * 0.036 : height * 0.038)}px 'Amiri Quran', 'Amiri', serif`;
+    ctx.font = `bold ${Math.round(isPortrait ? width * 0.045 : height * 0.046)}px 'Amiri Quran', 'Amiri', serif`;
     ctx.fillStyle = '#f7d774';
     ctx.fillText(`سُورَةُ ${surah.name} • ${surah.englishName}`, width / 2, bannerY + bannerH / 2);
   } else {
-    ctx.font = `600 ${Math.round(isPortrait ? width * 0.034 : height * 0.038)}px 'Amiri', 'Amiri Quran', serif`;
+    ctx.font = `600 ${Math.round(isPortrait ? width * 0.042 : height * 0.046)}px 'Amiri', 'Amiri Quran', serif`;
     ctx.fillStyle = goldColor;
     ctx.fillText(`${surah.name} • ${surah.englishName}`, width / 2, height * 0.05);
   }
@@ -570,14 +611,14 @@ export function drawAyahFrame(
   const rawWords = arabicText.split(' ').filter((w) => w.trim().length > 0);
 
   // Dynamic font scaling based on word count & aspect ratio
-  let baseArabicSize = isPortrait ? Math.round(width * 0.052) : Math.round(height * 0.065);
+  let baseArabicSize = isPortrait ? Math.round(width * 0.072) : Math.round(height * 0.088);
   if (rawWords.length > 35 || arabicText.length > 160) {
-    baseArabicSize = Math.round(baseArabicSize * 0.70);
+    baseArabicSize = Math.round(baseArabicSize * 0.72);
   } else if (rawWords.length > 22 || arabicText.length > 100) {
-    baseArabicSize = Math.round(baseArabicSize * 0.82);
+    baseArabicSize = Math.round(baseArabicSize * 0.85);
   }
 
-  const arabicFontSize = Math.max(22, baseArabicSize);
+  const arabicFontSize = Math.max(28, baseArabicSize);
   ctx.font = `600 ${arabicFontSize}px 'Amiri Quran', 'Amiri', 'Scheherazade New', serif`;
 
   // Tokenize into words
@@ -620,7 +661,7 @@ export function drawAyahFrame(
     });
   }
 
-  const lineSpacing = arabicFontSize * (isPortrait ? 1.55 : 1.48);
+  const lineSpacing = arabicFontSize * (isPortrait ? 1.82 : 1.75);
   const numArabicLines = linesOfWords.length;
   const totalArabicHeight = numArabicLines > 0 ? ((numArabicLines - 1) * lineSpacing + arabicFontSize) : 0;
 
@@ -636,7 +677,7 @@ export function drawAyahFrame(
   const translationBlocks: TranslationBlock[] = [];
   let totalTranslationHeight = 0;
 
-  const interBlockGap = isPortrait ? Math.round(width * 0.032) : 16; // Generous gap between Hindi & English
+  const interBlockGap = isPortrait ? Math.round(width * 0.045) : 24; // Generous gap between Hindi & English
 
   if (config.translationLang !== 'none') {
     const dual = getDualTranslationTexts(ayah, config.translationLang);
@@ -687,7 +728,7 @@ export function drawAyahFrame(
 
       const finalLines = tLines.slice(0, maxAllowedLines);
       const isHindi = fontFamily.includes('Devanagari');
-      const spacing = fontSize * (isHindi ? 1.48 : isPortrait ? 1.40 : 1.35);
+      const spacing = fontSize * (isHindi ? 1.58 : isPortrait ? 1.52 : 1.45);
       const blockHeight = finalLines.length > 0 ? ((finalLines.length - 1) * spacing + fontSize) : 0;
 
       return {
@@ -701,8 +742,8 @@ export function drawAyahFrame(
     };
 
     if (dual.secondaryText) {
-      const primaryFontSize = isPortrait ? Math.round(width * 0.036) : Math.round(height * 0.038);
-      const secondaryFontSize = isPortrait ? Math.round(width * 0.029) : Math.round(height * 0.032);
+      const primaryFontSize = isPortrait ? Math.round(width * 0.046) : Math.round(height * 0.048);
+      const secondaryFontSize = isPortrait ? Math.round(width * 0.038) : Math.round(height * 0.040);
 
       const b1 = buildTranslationBlock(
         dual.primaryText,
@@ -729,7 +770,7 @@ export function drawAyahFrame(
         totalTranslationHeight += b2.blockHeight;
       }
     } else if (dual.primaryText) {
-      let transFontSize = isPortrait ? Math.round(width * 0.038) : Math.round(height * 0.044);
+      let transFontSize = isPortrait ? Math.round(width * 0.048) : Math.round(height * 0.054);
       if (dual.primaryText.length > 140) {
         transFontSize = Math.round(transFontSize * 0.85);
       }
@@ -749,7 +790,7 @@ export function drawAyahFrame(
   }
 
   // 3. Calculate Perfect Center Starting Y & Symmetrical Separator Gaps
-  const separatorMargin = isPortrait ? Math.round(width * 0.040) : 22; // Symmetrical gap above and below separator line
+  const separatorMargin = isPortrait ? Math.round(width * 0.052) : 28; // Symmetrical gap above and below separator line
   const separatorTotalGap = translationBlocks.length > 0 ? (separatorMargin * 2) : 0;
   const totalBlockHeight = totalArabicHeight + separatorTotalGap + totalTranslationHeight;
 
@@ -763,7 +804,7 @@ export function drawAyahFrame(
   }
 
   // 4. Draw Arabic lines
-  const spaceW = ctx.measureText(' ').width;
+  const spaceW = ctx.measureText(' ').width * 1.25;
   let currentArabicY = blockStartY;
 
   ctx.textBaseline = 'top';
@@ -859,7 +900,7 @@ export function drawAyahFrame(
 
   // Footer Reference
   ctx.textBaseline = 'bottom';
-  ctx.font = `600 ${Math.round(isPortrait ? width * 0.028 : height * 0.026)}px 'Playfair Display', serif`;
+  ctx.font = `700 ${Math.round(isPortrait ? width * 0.035 : height * 0.032)}px 'Playfair Display', serif`;
   ctx.fillStyle = goldColor;
   ctx.fillText(`VERSE ${ayah.num} OF ${surah.numberOfAyahs}`, width / 2, height - height * 0.035);
 
@@ -961,13 +1002,13 @@ export function drawQuranBookPageFrame(
   const maxW = width - pad * 2 - (isPortrait ? 50 : 90);
   const totalTokens = allTokens.length;
 
-  let baseFontSize = isPortrait ? Math.round(width * 0.058) : Math.round(height * 0.066);
+  let baseFontSize = isPortrait ? Math.round(width * 0.072) : Math.round(height * 0.078);
   if (totalTokens > 250) baseFontSize = Math.round(baseFontSize * 0.68);
   else if (totalTokens > 150) baseFontSize = Math.round(baseFontSize * 0.76);
   else if (totalTokens > 80) baseFontSize = Math.round(baseFontSize * 0.85);
   else if (totalTokens > 40) baseFontSize = Math.round(baseFontSize * 0.92);
 
-  const arabicFontSize = Math.max(22, baseFontSize);
+  const arabicFontSize = Math.max(26, baseFontSize);
   ctx.font = `600 ${arabicFontSize}px 'Amiri Quran', 'Amiri', 'Scheherazade New', serif`;
 
   // 6. Wrap Tokens into Continuous RTL Lines with Generous Spacing
@@ -1007,7 +1048,7 @@ export function drawQuranBookPageFrame(
     : -1;
 
   // 8. Vertical Layout Positions with Generous Line Height for Diacritics
-  const lineSpacing = arabicFontSize * (isPortrait ? 1.72 : 1.68);
+  const lineSpacing = arabicFontSize * (isPortrait ? 1.88 : 1.80);
   const showBismillah = (startNum === 1 && surah.number !== 1 && surah.number !== 9);
   const bismillahH = showBismillah ? (arabicFontSize * 1.5) : 0;
 
@@ -1097,12 +1138,12 @@ export function drawQuranBookPageFrame(
       // Card Header Tag
       ctx.textAlign = 'center';
       ctx.textBaseline = 'top';
-      ctx.font = `800 ${Math.round(isPortrait ? width * 0.026 : height * 0.026)}px 'Plus Jakarta Sans', sans-serif`;
+      ctx.font = `800 ${Math.round(isPortrait ? width * 0.032 : height * 0.032)}px 'Plus Jakarta Sans', sans-serif`;
       ctx.fillStyle = '#d97706';
       ctx.fillText(`VERSE ${activeAyah.num} TRANSLATION`, width / 2, cardY + 10);
 
       // Translation Text
-      let transFontSize = isPortrait ? Math.round(width * 0.038) : Math.round(height * 0.040);
+      let transFontSize = isPortrait ? Math.round(width * 0.046) : Math.round(height * 0.048);
       if (transText.length > 120) transFontSize = Math.round(transFontSize * 0.85);
 
       const fontFamily = config.translationLang === 'ur'
@@ -1141,7 +1182,7 @@ export function drawQuranBookPageFrame(
 
   // 11. Footer Reference
   ctx.textBaseline = 'bottom';
-  ctx.font = `600 ${Math.round(isPortrait ? width * 0.028 : height * 0.026)}px 'Playfair Display', serif`;
+  ctx.font = `700 ${Math.round(isPortrait ? width * 0.034 : height * 0.032)}px 'Playfair Display', serif`;
   ctx.fillStyle = '#c59b27';
   ctx.fillText(`MADANI MUSHAF PAGE • SURAH ${surah.englishName.toUpperCase()} (${surah.number}) • VERSES ${startNum}–${endNum}`, width / 2, height - height * 0.022);
 
