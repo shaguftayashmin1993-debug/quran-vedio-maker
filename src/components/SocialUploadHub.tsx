@@ -22,6 +22,7 @@ export const SocialUploadHub: React.FC<SocialUploadHubProps> = ({
   const [copiedCaption, setCopiedCaption] = useState(false);
   const [copiedTitle, setCopiedTitle] = useState(false);
   const [showTokenHelp, setShowTokenHelp] = useState(false);
+  const [shareNotice, setShareNotice] = useState<string | null>(null);
 
   // YouTube Upload Form state
   const [ytTitle, setYtTitle] = useState(`${title} | Beautiful Quran Recitation #Shorts`);
@@ -113,24 +114,67 @@ export const SocialUploadHub: React.FC<SocialUploadHubProps> = ({
   };
 
   // 1. Web Share API for direct mobile/desktop app selection (Instagram Reels, TikTok, WhatsApp, etc.)
-  const handleDirectWebShare = async () => {
-    if (!videoBlob) return;
-    if (navigator.share) {
-      try {
-        const file = new File([videoBlob], `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`, { type: 'video/mp4' });
-        await navigator.share({
-          title: title,
-          text: `Watch ${title} - Recited by ${reciterName} ✨\n\n#Quran #Islam #Tilawat #QuranRecitation`,
-          files: [file]
-        });
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error('Share failed', err);
-        }
-      }
-    } else {
-      alert('Native Web Share with file attachments is not supported on this browser. You can use the YouTube Direct Upload or copy caption below.');
+  const triggerDownloadFallback = () => {
+    if (videoUrl) {
+      const a = document.createElement('a');
+      a.href = videoUrl;
+      a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
     }
+  };
+
+  const handleDirectWebShare = async () => {
+    if (!videoBlob && !videoUrl) return;
+
+    setShareNotice(null);
+    const shareText = `Watch ${title} - Recited by ${reciterName} ✨\n\n#Quran #Islam #Tilawat #QuranRecitation`;
+
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        const file = videoBlob
+          ? new File([videoBlob], `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`, { type: 'video/mp4' })
+          : null;
+
+        const canShareFiles = file && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] });
+
+        if (canShareFiles && file) {
+          await navigator.share({
+            title: title,
+            text: shareText,
+            files: [file]
+          });
+          return;
+        } else {
+          // Fallback share without file parameter
+          await navigator.share({
+            title: title,
+            text: shareText
+          });
+          return;
+        }
+      } catch (err: any) {
+        // User explicitly closed share sheet
+        if (err?.name === 'AbortError') {
+          return;
+        }
+        console.warn('Native web share restricted or unavailable in current environment:', err?.message || err);
+      }
+    }
+
+    // Permission denied / Security restricted fallback
+    try {
+      await navigator.clipboard.writeText(shareText);
+      setCopiedCaption(true);
+      setTimeout(() => setCopiedCaption(false), 3000);
+    } catch {
+      // ignore clipboard error
+    }
+
+    triggerDownloadFallback();
+    setShareNotice('📥 Video saved to downloads & caption copied to clipboard! (Browser iframe share sheet restricted)');
+    setTimeout(() => setShareNotice(null), 6000);
   };
 
   // 2. Direct YouTube API Upload
@@ -301,6 +345,12 @@ export const SocialUploadHub: React.FC<SocialUploadHubProps> = ({
             <Send className="w-4 h-4" />
             <span>Post Directly to Instagram / YouTube / WhatsApp</span>
           </button>
+
+          {shareNotice && (
+            <div className="p-3 bg-amber-500/15 border border-amber-500/40 rounded-xl text-xs font-medium text-amber-200 animate-in fade-in">
+              {shareNotice}
+            </div>
+          )}
 
           <div className="p-3 bg-[#131d33] rounded-lg border border-slate-800 text-[11px] text-slate-400 space-y-1">
             <span className="font-semibold text-slate-200 flex items-center gap-1">

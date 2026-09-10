@@ -1,0 +1,24 @@
+{
+  "name": "Quran Video Maker Studio",
+  "short_name": "Quran Studio",
+  "description": "Professional 4K Quran Video Maker & Editor with Recitations and Translations",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

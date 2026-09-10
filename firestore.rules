@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // User profiles & their saved video collections
+    match /users/{userId} {
+      allow read, write: if true;
+      
+      match /saved_videos/{videoId} {
+        allow read, write: if true;
+      }
+    }
+
+    // Allowed users whitelist (members and subscribers)
+    match /allowed_users/{docId} {
+      allow read, write: if true;
+    }
+
+    // Access / Subscription requests
+    match /access_requests/{requestId} {
+      allow read, write: if true;
+    }
+
+    // Access codes / Invite passes
+    match /access_codes/{codeId} {
+      allow read, write: if true;
+    }
+  }
+}
+

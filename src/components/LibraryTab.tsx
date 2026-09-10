@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
-import { FolderHeart, Play, Download, Trash2, Film, X, Share2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FolderHeart, Play, Download, Trash2, Film, X, Share2, Music, ArrowLeft, Loader2, RefreshCw } from 'lucide-react';
 import { SavedVideo } from '../types';
 import { SocialUploadHub } from './SocialUploadHub';
+import { triggerSafeDownload } from '../utils/downloadUtils';
+import { getVideoBlobFromDB } from '../utils/videoStorage';
 
 interface LibraryProps {
   savedVideos: SavedVideo[];
@@ -11,14 +13,124 @@ interface LibraryProps {
 
 export const LibraryTab: React.FC<LibraryProps> = ({ savedVideos, onDeleteVideo, onOpenStudio }) => {
   const [playingVideo, setPlayingVideo] = useState<SavedVideo | null>(null);
+  const [activeVideoSrc, setActiveVideoSrc] = useState<string>('');
+  const [isPreparingDownload, setIsPreparingDownload] = useState<string | null>(null);
 
-  const handleDownload = (video: SavedVideo) => {
-    const a = document.createElement('a');
-    a.href = video.blobUrl;
-    a.download = `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}.webm`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && playingVideo) {
+        setPlayingVideo(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [playingVideo]);
+
+  // When playing a video, ensure source is valid or restore from IndexedDB
+  useEffect(() => {
+    if (!playingVideo) {
+      setActiveVideoSrc('');
+      return;
+    }
+
+    let isMounted = true;
+    const resolveSource = async () => {
+      // Test if current URL is active
+      if (playingVideo.blobUrl) {
+        try {
+          const testRes = await fetch(playingVideo.blobUrl, { method: 'HEAD' });
+          if (testRes.ok && isMounted) {
+            setActiveVideoSrc(playingVideo.blobUrl);
+            return;
+          }
+        } catch {}
+      }
+
+      // If URL revoked or dead, restore from IndexedDB
+      const stored = await getVideoBlobFromDB(playingVideo.id);
+      if (stored?.videoBlob && isMounted) {
+        const freshUrl = URL.createObjectURL(stored.videoBlob);
+        setActiveVideoSrc(freshUrl);
+      } else if (isMounted) {
+        setActiveVideoSrc(playingVideo.blobUrl || '');
+      }
+    };
+
+    resolveSource();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [playingVideo]);
+
+  const silenceAllBackgroundAudio = () => {
+    try {
+      document.querySelectorAll('audio, video').forEach((el) => {
+        try {
+          (el as HTMLMediaElement).pause();
+        } catch (e) {}
+      });
+    } catch (e) {}
+  };
+
+  const downloadVideoUniversal = async (video: SavedVideo, resolution: 'sd' | 'hd') => {
+    silenceAllBackgroundAudio();
+    setIsPreparingDownload(`${video.id}-${resolution}`);
+    const filename = `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}_${resolution.toUpperCase()}.mp4`;
+
+    try {
+      // 1. Check IndexedDB for direct original Blob
+      const stored = await getVideoBlobFromDB(video.id);
+      if (stored?.videoBlob) {
+        await triggerSafeDownload(stored.videoBlob, filename);
+        return;
+      }
+
+      // 2. Fallback to existing blob URL
+      const targetUrl = resolution === 'sd' ? (video.sdBlobUrl || video.blobUrl) : (video.hdBlobUrl || video.blobUrl);
+      if (targetUrl) {
+        await triggerSafeDownload(targetUrl, filename);
+      }
+    } catch (err) {
+      console.error('Library download error:', err);
+    } finally {
+      setIsPreparingDownload(null);
+    }
+  };
+
+  const handleDownloadSd = (video: SavedVideo) => {
+    downloadVideoUniversal(video, 'sd');
+  };
+
+  const handleDownloadHd = (video: SavedVideo) => {
+    downloadVideoUniversal(video, 'hd');
+  };
+
+  const handleDownloadMp3 = async (video: SavedVideo) => {
+    silenceAllBackgroundAudio();
+    setIsPreparingDownload(`${video.id}-mp3`);
+    const filename = `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}_Recitation.wav`;
+
+    try {
+      const stored = await getVideoBlobFromDB(video.id);
+      if (stored?.audioBlob) {
+        await triggerSafeDownload(stored.audioBlob, filename);
+        return;
+      }
+
+      if (video.audioBlobUrl) {
+        await triggerSafeDownload(video.audioBlobUrl, filename);
+      } else if (stored?.videoBlob) {
+        // Download master video as fallback
+        await triggerSafeDownload(stored.videoBlob, `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`);
+      } else if (video.blobUrl) {
+        await triggerSafeDownload(video.blobUrl, `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`);
+      }
+    } catch (err) {
+      console.error('Audio download error:', err);
+    } finally {
+      setIsPreparingDownload(null);
+    }
   };
 
   return (
@@ -99,29 +211,50 @@ export const LibraryTab: React.FC<LibraryProps> = ({ savedVideos, onDeleteVideo,
               </div>
 
               {/* Actions */}
-              <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
+              <div className="flex items-center gap-1.5 pt-1 border-t border-slate-800">
                 <button
                   onClick={() => setPlayingVideo(video)}
-                  className="flex-1 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex-1 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-xs border border-amber-500/30 flex items-center justify-center gap-1 transition-colors cursor-pointer"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>Play</span>
                 </button>
 
                 <button
-                  onClick={() => handleDownload(video)}
-                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                  title="Download File"
+                  onClick={() => handleDownloadSd(video)}
+                  disabled={isPreparingDownload === `${video.id}-sd`}
+                  className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Download Universal SD MP4 (Compatible with Windows Media Player, QuickTime & all devices)"
                 >
-                  <Download className="w-4 h-4" />
+                  <Download className="w-3 h-3 text-amber-400" />
+                  <span>{isPreparingDownload === `${video.id}-sd` ? 'Converting...' : '720p MP4'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownloadHd(video)}
+                  disabled={isPreparingDownload === `${video.id}-hd`}
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-bold border border-amber-500/40 flex items-center gap-1 transition-colors cursor-pointer disabled:opacity-50"
+                  title="Download Universal HD MP4 (Compatible with Windows Media Player, QuickTime & all devices)"
+                >
+                  <Download className="w-3 h-3 text-amber-400" />
+                  <span>{isPreparingDownload === `${video.id}-hd` ? 'Converting...' : '1080p MP4'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownloadMp3(video)}
+                  className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold border border-slate-700 flex items-center gap-1 transition-colors cursor-pointer"
+                  title="Download MP3 Recitation Audio"
+                >
+                  <Music className="w-3 h-3 text-amber-400" />
+                  <span>MP3</span>
                 </button>
 
                 <button
                   onClick={() => onDeleteVideo(video.id)}
-                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer"
+                  className="p-1.5 rounded-lg bg-slate-800 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors cursor-pointer ml-auto"
                   title="Delete Video"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             </div>
@@ -131,43 +264,102 @@ export const LibraryTab: React.FC<LibraryProps> = ({ savedVideos, onDeleteVideo,
 
       {/* Video Player Modal */}
       {playingVideo && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-[#0e1626] border border-slate-800 rounded-2xl max-w-3xl w-full p-4 space-y-4 relative">
-            <button
-              onClick={() => setPlayingVideo(null)}
-              className="absolute top-3 right-3 text-slate-400 hover:text-slate-100 p-1.5 rounded-lg hover:bg-slate-800 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <div
+          className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setPlayingVideo(null);
+          }}
+        >
+          <div
+            className="bg-[#0e1626] border border-slate-800 rounded-2xl max-w-3xl w-full p-4 sm:p-5 space-y-4 relative shadow-2xl my-auto max-h-[92vh] flex flex-col overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3 flex-shrink-0">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <button
+                  type="button"
+                  onClick={() => setPlayingVideo(null)}
+                  className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to Library</span>
+                </button>
+                <h3 className="text-sm font-bold text-slate-200 truncate">{playingVideo.title}</h3>
+              </div>
 
-            <h3 className="text-sm font-bold text-slate-200 pr-8">{playingVideo.title}</h3>
+              <button
+                type="button"
+                onClick={() => setPlayingVideo(null)}
+                title="Close (Esc)"
+                className="text-slate-400 hover:text-slate-100 p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <div className="bg-black rounded-xl overflow-hidden flex items-center justify-center max-h-[400px]">
-              <video
-                src={playingVideo.blobUrl}
-                controls
-                autoPlay
-                className="max-h-[380px] w-auto rounded-lg"
+            {/* Modal Body */}
+            <div className="space-y-4 overflow-y-auto flex-1 p-1">
+              <div className="bg-black rounded-xl overflow-hidden flex items-center justify-center max-h-[380px]">
+                {activeVideoSrc ? (
+                  <video
+                    key={activeVideoSrc}
+                    src={activeVideoSrc}
+                    controls
+                    autoPlay
+                    className="max-h-[360px] w-auto rounded-lg"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 text-slate-400 gap-2">
+                    <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+                    <span className="text-xs">Loading video playback stream...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Social Direct Upload & Sharing Hub */}
+              <SocialUploadHub
+                videoBlob={null}
+                videoUrl={activeVideoSrc || playingVideo.blobUrl}
+                title={playingVideo.title}
+                surahName={playingVideo.surahName}
+                reciterName="Qari Reciter"
+                aspectRatio={playingVideo.aspectRatio}
               />
             </div>
 
-            {/* Social Direct Upload & Sharing Hub */}
-            <SocialUploadHub
-              videoBlob={null}
-              videoUrl={playingVideo.blobUrl}
-              title={playingVideo.title}
-              surahName={playingVideo.surahName}
-              reciterName="Qari Reciter"
-              aspectRatio={playingVideo.aspectRatio}
-            />
-
-            <div className="flex justify-end gap-2 border-t border-slate-800 pt-3">
+            {/* Modal Footer Download Options */}
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 border-t border-slate-800 pt-3 flex-shrink-0">
               <button
-                onClick={() => handleDownload(playingVideo)}
-                className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                onClick={() => handleDownloadSd(playingVideo)}
+                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
               >
-                <Download className="w-4 h-4" />
-                <span>Download Video File</span>
+                <Download className="w-3.5 h-3.5 text-amber-400" />
+                <span>SD (720p)</span>
+              </button>
+
+              <button
+                onClick={() => handleDownloadHd(playingVideo)}
+                className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md shadow-amber-500/20"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>HD (1080p)</span>
+              </button>
+
+              <button
+                onClick={() => handleDownloadMp3(playingVideo)}
+                className="py-2.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Music className="w-3.5 h-3.5 text-amber-400" />
+                <span>MP3 Audio</span>
+              </button>
+
+              <button
+                onClick={() => setPlayingVideo(null)}
+                className="py-2.5 px-3 rounded-xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Exit Player</span>
               </button>
             </div>
           </div>

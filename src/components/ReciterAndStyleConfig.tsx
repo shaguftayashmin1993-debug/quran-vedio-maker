@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Palette, Video, Languages, Type, Sparkles, Volume2, Zap, Image as ImageIcon, Film, ShieldCheck, Star, Play, Pause, Headphones } from 'lucide-react';
-import { VideoConfig, VideoStyle, AudioMode, TranslationLang, ArabicScript, BgImageCategory, TextAnimation } from '../types';
+import { Mic, Palette, Video, Languages, Type, Sparkles, Volume2, Zap, Image as ImageIcon, Film, ShieldCheck, Star, Play, Pause, Headphones, ZoomIn } from 'lucide-react';
+import { VideoConfig, VideoStyle, AudioMode, TranslationLang, ArabicScript, BgImageCategory, TextAnimation, TextSize } from '../types';
 import { RECITERS, TRANSLATION_RECITERS, getAudioUrl } from '../data/reciters';
 import { ReciterReviewModal } from './ReciterReviewModal';
 
@@ -10,6 +10,18 @@ interface ConfigProps {
 }
 
 const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: string }[] = [
+  {
+    id: 'scholar-rembrandt',
+    name: '🎓 Scholar Study & Library (Rembrandt Lighting)',
+    desc: 'Archival study setting with mahogany bookshelves, 45° warm amber Rembrandt key-light & golden rim (100% human-free)',
+    previewBg: 'bg-gradient-to-br from-[#241308] via-[#140b04] to-[#080402] border-amber-500/80 text-amber-200'
+  },
+  {
+    id: 'symbolic-broll',
+    name: '🌅 Symbolic Twilight & Divine Glow (Aniconic)',
+    desc: 'Pure silent cinematic landscapes & heritage architecture in twilight lighting with golden divine aura (zero humans)',
+    previewBg: 'bg-gradient-to-b from-[#1a0b18] via-[#13071b] to-[#0d0408] border-amber-400/80 text-amber-200'
+  },
   {
     id: 'modern-dark',
     name: 'Modern Dark',
@@ -43,29 +55,77 @@ const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: str
   {
     id: 'quran-page',
     name: 'Madani Quran Page',
-    desc: 'Authentic printed Quran page layout with emerald gold header banner & double borders',
+    desc: 'Authentic printed Mushaf layout with pure Arabic text, enlarged dynamic page typography & real-time voice sync',
     previewBg: 'bg-[#fdfcf7] text-emerald-950 border-emerald-700 ring-1 ring-amber-500/50'
   }
 ];
 
 const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; previewUrl: string }[] = [
   {
-    id: 'holy-kaaba',
-    name: '🕋 Holy Kaaba at Night (Makkah)',
-    desc: 'Golden illuminated Holy Kaaba in Masjid al-Haram at night',
+    id: 'holy-kaaba-makkah',
+    name: '🕋 Holy Kaaba (Makkah Al-Mukarramah 4K)',
+    desc: 'Majestic 4K view of the Holy Kaaba with golden embroidered Kiswah in Makkah (100% human-free)',
     previewUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=300&auto=format&fit=crop'
   },
   {
-    id: 'madinah-prophet-mosque',
-    name: '🕌 Prophet’s Mosque (Madinah)',
-    desc: 'Illuminated courtyard & minarets of Masjid an-Nabawi in Madinah',
-    previewUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?q=80&w=300&auto=format&fit=crop'
+    id: 'kaaba-kiswah-gold',
+    name: '✨ Kaaba Sacred Kiswah Gold Embroidery (4K)',
+    desc: 'Pure golden embroidered Quranic calligraphy of the Holy Kaaba Kiswah (Close-up 4K)',
+    previewUrl: 'https://images.unsplash.com/photo-1590076215667-875d4ef2d7ee?q=80&w=300&auto=format&fit=crop'
   },
   {
-    id: 'madinah-mosque-dusk',
-    name: '🕌 Madinah Mosque Twilight',
-    desc: 'Peaceful twilight sky over Madinah al-Munawwarah mosque',
+    id: 'prophets-mosque-madinah',
+    name: '🕌 Prophet\'s Mosque — Masjid an-Nabawi (Madinah 4K)',
+    desc: 'The iconic Green Dome and illuminated Madinah canopies under twilight sky (pure architecture)',
+    previewUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'masjid-al-aqsa-dome',
+    name: '🕌 Masjid Al-Aqsa / Dome of the Rock (4K)',
+    desc: 'Radiant golden dome and Ottoman blue geometric ceramic tiles at sunset (100% human-free)',
     previewUrl: 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'makkah-grand-mosque-minarets',
+    name: '🕋 Makkah Grand Mosque & Holy Spire (4K)',
+    desc: 'Towering marble minarets and Grand Mosque architecture under night illumination',
+    previewUrl: 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'islamic-geometric-calligraphy',
+    name: '📜 Sacred Arabesque & Gilded Calligraphy (4K)',
+    desc: 'Intricate gold-leaf Islamic illumination and historic geometric patterns',
+    previewUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'scholar-study',
+    name: '📚 Scholar Archival Study & Bookshelves',
+    desc: 'Warm mahogany archival library with books in background & Rembrandt directional lighting (100% human-free)',
+    previewUrl: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'symbolic-twilight-desert',
+    name: '🏜️ Symbolic Twilight Desert Dunes',
+    desc: 'Pure silent cinematic sand dunes in soft sunset twilight lighting (empty landscape, no people)',
+    previewUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'symbolic-ancient-marketplace',
+    name: '🏛️ Ancient Islamic Architecture & Arches',
+    desc: 'Historical oriental arches and heritage architecture at twilight (pure architectural scenery)',
+    previewUrl: 'https://images.unsplash.com/photo-1548013146-72479768bada?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'symbolic-divine-light',
+    name: '✨ Divine Radiant Golden Light (Aniconic Aura)',
+    desc: 'Soft golden glowing light representing unseen divine elements with strict Islamic aniconism (zero humans)',
+    previewUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300&auto=format&fit=crop'
+  },
+  {
+    id: 'historical-artifacts',
+    name: '📜 Historical Artifacts & Parchment',
+    desc: 'Ancient manuscript parchment and historical artifacts in warm amber light (pure objects)',
+    previewUrl: 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'noble-quran',
@@ -86,12 +146,6 @@ const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; pr
     previewUrl: 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=80&w=300&auto=format&fit=crop'
   },
   {
-    id: 'grand-mosque',
-    name: '🕌 Grand Mosque Domes',
-    desc: 'Majestic mosque domes & illuminated minarets against twilight sky',
-    previewUrl: 'https://images.unsplash.com/photo-1542810634-71277d95dcbb?q=80&w=300&auto=format&fit=crop'
-  },
-  {
     id: 'blue-mosque-istanbul',
     name: '🕌 Sultanahmet Blue Mosque',
     desc: 'Iconic minarets & dome silhouette against golden sunset sky',
@@ -108,12 +162,6 @@ const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; pr
     name: '✨ Illuminated Mosque Arches',
     desc: 'Intricate golden Islamic arches and vaulted hallways',
     previewUrl: 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=300&auto=format&fit=crop'
-  },
-  {
-    id: 'mosque-interior',
-    name: '🕌 Sacred Mosque Interior',
-    desc: 'Warm ambient prayer hall with golden carpets & soft chandeliers',
-    previewUrl: 'https://images.unsplash.com/photo-1600093463592-8e36ae95ef56?q=80&w=300&auto=format&fit=crop'
   },
   {
     id: 'mosque-minaret-sky',
@@ -280,7 +328,7 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               </h3>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Transforms recitation visuals into the exact look of a physical 15-line Madani Quran page, featuring gold Surah Unwan cartouches, Juz margin medallions &amp; illuminated emerald borders!
+              Displays authentic Madani Quran pages with pure Arabic calligraphy, enlarged font size dynamically fitted to page space, and word-by-word recitation highlights (pure Arabic, no translation text).
             </p>
           </div>
 
@@ -323,6 +371,50 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 100% Copyright-Free & YouTube Monetization Shield Banner */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-950/80 via-[#0d2218] to-slate-900 border border-emerald-500/40 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-lg bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 flex-shrink-0 text-lg">
+            🛡️
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h4 className="text-xs font-bold text-emerald-200 uppercase tracking-wide">
+                100% Copyright-Free &amp; Monetization Safe
+              </h4>
+              <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-400 text-slate-950 font-extrabold uppercase">
+                Zero Content ID Claims
+              </span>
+            </div>
+            <p className="text-[11px] text-emerald-300/80 mt-0.5 leading-relaxed">
+              Synthesized AI Translation Voices + Public Domain Arabic Recitations + 4K Unsplash Backgrounds + Google Open Fonts. 100% safe for YouTube Shorts, Reels &amp; TikTok monetization.
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            onChange({
+              audioMode: 'both',
+              translationReciterFolder: 'tts-ur-scholar',
+              translationReciterName: 'Urdu — Mature Indian Scholar (50-55 yrs, 120Hz Baritone • Voice Lock)',
+              translationLang: 'ur',
+              voiceLock: true,
+              voiceProfile: 'scholar-mature-baritone',
+              deliverySpeed: 1.0,
+              baritoneResonance: true,
+              bgImageCategory: 'holy-kaaba-makkah',
+              rotateBgPerAyah: true,
+              videoStyle: 'modern-dark'
+            });
+          }}
+          className="px-3.5 py-2 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm flex-shrink-0 whitespace-nowrap"
+        >
+          <span>✨</span> Apply 100% Copyright-Free Setup
+        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -422,21 +514,38 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
           <div className="space-y-3 col-span-1 md:col-span-2 bg-[#121b2f] p-4 rounded-xl border border-amber-500/30">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <label className="block text-xs font-semibold text-amber-300 flex items-center gap-1.5">
-                <Volume2 className="w-4 h-4 text-amber-400" /> Translation Audio Voice & Reciter
+                <Volume2 className="w-4 h-4 text-amber-400" /> Translation Audio Voice &amp; Reciter
               </label>
-              <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium self-start sm:self-auto">
-                100% YouTube Copyright Safe Available
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                  <span>✓</span> 100% Copyright-Free API Voice
+                </span>
+              </div>
             </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              All AI Spoken Voices (Urdu, English, Hindi, French, Indonesian, Spanish, Turkish, Persian, Bosnian) are generated via real-time Text-to-Speech API with zero Content ID match—100% safe for YouTube monetization, Shorts &amp; Reels.
+            </p>
 
             <select
               value={config.translationReciterFolder}
               onChange={(e) => {
                 const selected = TRANSLATION_RECITERS.find((t) => t.folder === e.target.value);
+                const folderVal = e.target.value;
+                let profile: 'scholar-mature-baritone' | 'elder-bayan-warm' | 'mufti-deep-resonant' | 'gentle-muallim-narrator' | 'dignified-female-scholar' | 'authentic-human' | 'standard' = 'standard';
+
+                if (folderVal === 'tts-ur-scholar') profile = 'scholar-mature-baritone';
+                else if (folderVal === 'tts-ur-bayan') profile = 'elder-bayan-warm';
+                else if (folderVal === 'tts-ur-mufti') profile = 'mufti-deep-resonant';
+                else if (folderVal === 'tts-ur-muallim') profile = 'gentle-muallim-narrator';
+                else if (folderVal === 'translations/urdu_farhat_hashmi') profile = 'dignified-female-scholar';
+                else if (folderVal === 'translations/urdu_shamshad_ali_khan_46kbps') profile = 'authentic-human';
+
                 onChange({
                   translationReciterFolder: e.target.value,
                   translationReciterName: selected ? selected.name : e.target.value,
-                  translationLang: selected ? selected.lang : config.translationLang
+                  voiceProfile: profile,
+                  baritoneResonance: profile !== 'standard' && profile !== 'authentic-human'
                 });
               }}
               className="w-full bg-[#17233d] border border-amber-500/40 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition-all font-semibold"
@@ -453,16 +562,18 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               <span className="text-xs text-slate-300 font-medium">Translation Voice Speed:</span>
               <div className="flex items-center gap-1.5">
                 {[
-                  { label: '0.85x (Slow & Clear)', val: 0.85 },
-                  { label: '1.0x (Normal)', val: 1.0 },
-                  { label: '1.15x (Brisk)', val: 1.15 }
+                  { label: '0.85x (Slow & Calm)', val: 0.85 },
+                  { label: '1.0x (Normal Authentic)', val: 1.0 },
+                  { label: '1.15x (Brisk)', val: 1.15 },
+                  { label: '1.25x (Fast)', val: 1.25 },
+                  { label: '1.5x (Accelerated)', val: 1.5 }
                 ].map((s) => (
                   <button
                     key={s.val}
                     type="button"
-                    onClick={() => onChange({ translationSpeechRate: s.val })}
+                    onClick={() => onChange({ translationSpeechRate: s.val, deliverySpeed: s.val })}
                     className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-                      (config.translationSpeechRate || 1.0) === s.val
+                      (config.deliverySpeed || config.translationSpeechRate || 1.0) === s.val
                         ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                         : 'bg-[#182643] text-slate-300 hover:text-white hover:bg-[#203157]'
                     }`}
@@ -473,8 +584,103 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               </div>
             </div>
 
-            <p className="text-[11px] text-emerald-400 font-medium flex items-center gap-1 pt-1">
-              💡 <strong>Tip:</strong> Choose <strong>AI Spoken Voice (100% Copyright-Free)</strong> to ensure your uploaded YouTube videos are 100% monetization-safe without ContentID strikes!
+            {/* Permanent Voice Settings (Voice Lock) Special Panel */}
+            <div className="mt-3 p-3.5 rounded-xl bg-gradient-to-r from-[#1c1208] via-[#160d05] to-[#0f0803] border border-amber-500/60 shadow-lg">
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 text-base">🔒</span>
+                  <div>
+                    <h4 className="text-xs font-bold text-amber-200 uppercase tracking-wide">
+                      Permanent Voice Settings (Voice Lock)
+                    </h4>
+                    <p className="text-[11px] text-amber-400/80">
+                      Mature Indian Scholar (50-55 yrs) • 120Hz Mid-Baritone • Natural Authentic Delivery
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextLocked = !config.voiceLock;
+                    if (nextLocked) {
+                      onChange({
+                        voiceLock: true,
+                        voiceProfile: 'scholar-mature-baritone',
+                        deliverySpeed: 1.0,
+                        baritoneResonance: true,
+                        translationReciterFolder: 'tts-ur-scholar',
+                        translationReciterName: 'Urdu — Mature Indian Scholar (50-55 yrs, 120Hz Baritone • Voice Lock)',
+                        translationLang: 'ur',
+                        videoStyle: config.videoStyle === 'modern-dark' ? 'scholar-rembrandt' : config.videoStyle,
+                        slotType: config.slotType || 'alternating-slots'
+                      });
+                    } else {
+                      onChange({
+                        voiceLock: false,
+                        voiceProfile: 'standard',
+                        baritoneResonance: false
+                      });
+                    }
+                  }}
+                  className={`px-3 py-1 text-xs rounded-full font-bold transition-all flex items-center gap-1.5 ${
+                    config.voiceLock
+                      ? 'bg-amber-500 text-slate-950 ring-2 ring-amber-400 shadow-md'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  {config.voiceLock ? '✓ Voice Locked (Active)' : 'Enable Voice Lock'}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] text-slate-300 pt-2 border-t border-amber-900/50">
+                <div className="space-y-1">
+                  <div className="text-amber-300 font-semibold flex items-center gap-1">
+                    <span>🎙️</span> Narration Voice &amp; Resonance:
+                  </div>
+                  <p className="text-slate-400 leading-relaxed">
+                    Mature Indian male scholar (50-55 yrs). Warm, deep mid-baritone (120 Hz centered) with rich chest resonance. Mature Indian Urdu (thehra hua, ba-adab) with respectful Arabic phonetics (deep qaaf ق, clear khe خ, soft he ح, natural ain ع).
+                  </p>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="text-amber-300 font-semibold flex items-center gap-1">
+                    <span>⚡</span> Authentic Delivery &amp; Pacing:
+                  </div>
+                  <p className="text-slate-400 leading-relaxed">
+                    Authentic 1.0x human tempo with natural breath pauses. Uses warm archival library setting for scholar study slots &amp; silent twilight nature/architecture visuals for symbolic slots (100% human-free imagery throughout).
+                  </p>
+                </div>
+              </div>
+
+              {/* Slot Type Mode Selector */}
+              <div className="mt-3 pt-2 border-t border-amber-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-amber-200">🎨 Visual Slot Type:</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: 'scholar-study', label: '📚 Scholar Study (No Humans)' },
+                    { id: 'symbolic-broll', label: '🌅 Symbolic Twilight (Aniconic)' },
+                    { id: 'alternating-slots', label: '🔄 Alternating Slots' }
+                  ].map((st) => (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => onChange({ slotType: st.id as any })}
+                      className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
+                        (config.slotType || 'alternating-slots') === st.id ||
+                        (st.id === 'scholar-study' && config.slotType === 'scholar-on-screen')
+                          ? 'bg-amber-400 text-slate-950 font-bold shadow'
+                          : 'bg-[#22140a] text-amber-200/80 hover:bg-[#301c0e]'
+                      }`}
+                    >
+                      {st.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-amber-300/90 font-medium flex items-center gap-1 pt-1">
+              🎙️ <strong>Authentic Human Urdu:</strong> Select <strong>Shamshad Ali Khan</strong> or <strong>Mature Indian Scholar (Voice Lock)</strong> for 100% natural, expressive human studio recitation with flawless Urdu pronunciation.
             </p>
           </div>
         )}
@@ -488,13 +694,8 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
             value={config.translationLang}
             onChange={(e) => {
               const newLang = e.target.value as TranslationLang;
-              const matchingReciter = TRANSLATION_RECITERS.find((tr) => tr.lang === newLang);
               onChange({
-                translationLang: newLang,
-                ...(matchingReciter ? {
-                  translationReciterFolder: matchingReciter.folder,
-                  translationReciterName: matchingReciter.name
-                } : {})
+                translationLang: newLang
               });
             }}
             className="w-full bg-[#141e33] border border-slate-700 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition-all"
@@ -527,6 +728,109 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
             <option value="uthmani">Uthmani Script (Madani Diacritics)</option>
             <option value="indopak">IndoPak Script (South Asian Format)</option>
           </select>
+        </div>
+
+        {/* 6. Arabic Calligraphy & Subtitle Text Scale */}
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-slate-300 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <ZoomIn className="w-3.5 h-3.5 text-amber-400" /> Arabic &amp; Subtitle Text Size
+            </span>
+            <span className="text-[11px] text-amber-400 font-medium">Automatic Dynamic Fitting</span>
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {[
+              { id: 'normal', label: 'Normal (1X)', scale: '1.0x scale' },
+              { id: 'large', label: 'Large (1.5X)', scale: '1.35x scale' },
+              { id: 'extra-large', label: 'Extra Large (2X)', scale: '1.75x scale' },
+              { id: 'huge', label: 'Huge (3X)', scale: '2.25x scale' }
+            ].map((s) => {
+              const active = (config.textSize || 'large') === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onChange({ textSize: s.id as TextSize })}
+                  className={`py-2 px-1.5 rounded-xl border text-center transition-all ${
+                    active
+                      ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-2 ring-amber-500/30 font-bold'
+                      : 'bg-[#141e33] border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <div className="text-xs">{s.label}</div>
+                  <div className="text-[9px] opacity-70">{s.scale}</div>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-[11px] text-slate-400 leading-relaxed">
+            The Authentic Quran Page dynamically fits calligraphy to maximize page space while preserving classical Mushaf proportions.
+          </p>
+        </div>
+
+        {/* 7. Quran Page Specific: Verses per Screen */}
+        {config.videoStyle === 'quran-page' && (
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-slate-300 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                📖 Verses Displayed Per Page
+              </span>
+              <span className="text-[11px] text-slate-400 font-normal">Fewer verses = larger calligraphy</span>
+            </label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {[
+                { count: 1, label: '1 Ayah', sub: 'Max Size' },
+                { count: 2, label: '2 Ayat', sub: 'Super Large' },
+                { count: 3, label: '3 Ayat', sub: 'Royal ★' },
+                { count: 5, label: '5 Ayat', sub: 'Balanced' },
+                { count: 10, label: '10 Ayat', sub: 'Mushaf ★' }
+              ].map((opt) => {
+                const active = (config.mushafAyatPerPage || 10) === opt.count;
+                return (
+                  <button
+                    key={opt.count}
+                    type="button"
+                    onClick={() => onChange({ mushafAyatPerPage: opt.count })}
+                    className={`py-2 px-1 rounded-xl border text-center transition-all ${
+                      active
+                        ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-2 ring-emerald-500/30 font-bold'
+                        : 'bg-[#141e33] border-slate-700 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="text-xs">{opt.label}</div>
+                    <div className="text-[9px] opacity-70">{opt.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Single Focused Line per Frame Toggle */}
+      <div className="space-y-2 pt-2 border-t border-slate-800">
+        <div className="flex items-center justify-between bg-[#121c30] p-3 rounded-xl border border-slate-800">
+          <div className="space-y-0.5">
+            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Single Focused Line per Frame (Max Enlargement)
+            </span>
+            <p className="text-[11px] text-slate-400">
+              Enlarges Arabic calligraphy &amp; subtitles into one prominent focused line per video frame (ideal for Shorts, Reels &amp; TikTok).
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onChange({ oneLinePerFrame: !config.oneLinePerFrame })}
+            className={`w-12 h-6 rounded-full transition-colors relative flex items-center px-1 ${
+              config.oneLinePerFrame ? 'bg-amber-500' : 'bg-slate-700'
+            }`}
+          >
+            <div
+              className={`w-4 h-4 rounded-full bg-slate-950 transition-transform ${
+                config.oneLinePerFrame ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
       </div>
 
@@ -654,6 +958,51 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
             />
           </button>
         </div>
+
+        {/* Text Size & Screen Spacing Selector */}
+        <div className="mt-3 bg-[#121c30] p-3.5 rounded-xl border border-slate-800 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+              <Type className="w-3.5 h-3.5 text-amber-400" /> Verse Font Size &amp; Screen Spacing
+            </span>
+            <span className="text-[11px] text-amber-300 font-medium">
+              {config.textSize === 'compact' && 'Compact (हल्का / कम)'}
+              {(config.textSize === 'normal' || !config.textSize) && 'Balanced (संतुलित)'}
+              {config.textSize === 'large' && 'Large (बड़ा)'}
+              {config.textSize === 'extra-large' && 'Extra Large'}
+              {config.textSize === 'huge' && 'Huge'}
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-400">
+            Font size kam/chhota karne se screen bhari hui nahi lagti aur layout saaf aur khula dikhta hai.
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 pt-0.5">
+            {[
+              { id: 'compact', label: 'Compact', sub: 'कम / छोटा' },
+              { id: 'normal', label: 'Balanced', sub: 'संतुलित' },
+              { id: 'large', label: 'Large', sub: 'बड़ा' },
+              { id: 'extra-large', label: 'X-Large', sub: 'विशाल' },
+              { id: 'huge', label: 'Huge', sub: 'अधिक बड़ा' }
+            ].map((s) => {
+              const isActive = (config.textSize || 'normal') === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onChange({ textSize: s.id as any })}
+                  className={`py-2 px-2 rounded-lg border text-center transition-all ${
+                    isActive
+                      ? 'border-amber-500 bg-amber-500/20 text-amber-300 ring-2 ring-amber-500/30 font-bold'
+                      : 'border-slate-800 bg-[#162238] text-slate-300 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="text-xs font-bold leading-tight">{s.label}</div>
+                  <div className="text-[10px] opacity-75 mt-0.5">{s.sub}</div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
       {/* 9. Background Image Themes */}
@@ -705,14 +1054,38 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
         </div>
 
         {/* Scenery Motion & Rotation Feature Toggles */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
           <div className="bg-[#121c30] p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
             <div className="space-y-0.5">
               <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Auto-Rotate Scenery per Verse
+                <Type className="w-3.5 h-3.5 text-amber-400" /> 1 Line Per Frame
               </span>
               <p className="text-[10px] text-slate-400">
-                Changes background photo automatically after every Ayah
+                Large, uncongested single-line verse display
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onChange({ oneLinePerFrame: !config.oneLinePerFrame })}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                config.oneLinePerFrame ? 'bg-amber-500' : 'bg-slate-700'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  config.oneLinePerFrame ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
+          <div className="bg-[#121c30] p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
+            <div className="space-y-0.5">
+              <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Auto-Rotate Scenery
+              </span>
+              <p className="text-[10px] text-slate-400">
+                New background photo every verse
               </p>
             </div>
             <button
@@ -733,10 +1106,10 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
           <div className="bg-[#121c30] p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-3">
             <div className="space-y-0.5">
               <span className="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
-                <Film className="w-3.5 h-3.5 text-amber-400" /> Motion Scenery Clip &amp; Dust
+                <Film className="w-3.5 h-3.5 text-amber-400" /> Motion &amp; Stardust
               </span>
               <p className="text-[10px] text-slate-400">
-                Cinematic slow zoom, drifting pan &amp; floating stardust particles
+                Cinematic slow zoom &amp; particles
               </p>
             </div>
             <button

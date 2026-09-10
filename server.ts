@@ -1,18 +1,48 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
+import os from "os";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import multer from "multer";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 
 dotenv.config();
+
+const execFileAsync = promisify(execFile);
+
+// Temp directory for video merging
+const mergeUploadDir = path.join(os.tmpdir(), "video-merges");
+if (!fs.existsSync(mergeUploadDir)) {
+  fs.mkdirSync(mergeUploadDir, { recursive: true });
+}
+
+const mergeUpload = multer({
+  dest: mergeUploadDir,
+  limits: {
+    fileSize: 300 * 1024 * 1024, // 300MB per clip
+    files: 250 // Up to 250 clips
+  }
+});
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json({ limit: "50mb" }));
 
-// In-memory cache for surah list and surah texts to speed up subsequent requests
+// Health check endpoint for container platform
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
+});
+
+// In-memory and disk cache for surah list and surah texts to speed up subsequent requests
 const surahCache: Record<number, any> = {};
 let surahListCache: any[] | null = null;
+const SURAH_CACHE_DIR = path.join(process.cwd(), "data", "cache", "surahs");
+if (!fs.existsSync(SURAH_CACHE_DIR)) {
+  fs.mkdirSync(SURAH_CACHE_DIR, { recursive: true });
+}
 
 // 1. Get all 114 Surahs
 app.get("/api/surahs", async (req, res) => {
@@ -38,23 +68,34 @@ app.get("/api/surah/:number", async (req, res) => {
     return res.status(400).json({ status: "error", message: "Invalid Surah number (1-114)" });
   }
 
+  res.setHeader("Cache-Control", "public, max-age=86400");
+
   try {
+    // 1. Check in-memory cache
     if (surahCache[surahNum]) {
       return res.json({ status: "success", data: surahCache[surahNum] });
     }
 
-    // Single multi-edition fetch to alquran.cloud + parallel indopak fetch with 20s timeout
+    // 2. Check persistent disk cache
+    const diskPath = path.join(SURAH_CACHE_DIR, `${surahNum}.json`);
+    if (fs.existsSync(diskPath)) {
+      try {
+        const rawContent = fs.readFileSync(diskPath, "utf8");
+        const parsed = JSON.parse(rawContent);
+        if (parsed && parsed.ayahs && parsed.ayahs.length > 0) {
+          surahCache[surahNum] = parsed;
+          return res.json({ status: "success", data: parsed });
+        }
+      } catch (e) {
+        console.warn(`Could not read disk cache for Surah ${surahNum}:`, e);
+      }
+    }
+
+    // 3. Fetch from external APIs with safe timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const editionsUrl = `https://api.alquran.cloud/v1/surah/${surahNum}/editions/quran-uthmani,en.sahih,ur.jalandhry,hi.hindi,fr.hamidullah,id.indonesian,es.bornez,tr.yildirim`;
-    const indopakUrl = `https://api.quran.com/api/v4/quran/verses/indopak?chapter_number=${surahNum}&per_page=300`;
-
-    const [editionsRes, indopakRes] = await Promise.all([
-      fetch(editionsUrl, { signal: controller.signal }).catch(() => null),
-      fetch(indopakUrl, { signal: controller.signal }).catch(() => null)
-    ]);
-    clearTimeout(timeoutId);
+    const editionsUrl = `https://api.alquran.cloud/v1/surah/${surahNum}/editions/quran-uthmani,en.sahih,ur.jalandhry,hi.hindi,fr.hamidullah,id.indonesian,es.bornez,tr.yildirim,fa.fooladvand,bs.korkut`;
 
     let uthmaniData: any = null;
     let enData: any = null;
@@ -64,41 +105,95 @@ app.get("/api/surah/:number", async (req, res) => {
     let idData: any = null;
     let esData: any = null;
     let trData: any = null;
+    let faData: any = null;
+    let bsData: any = null;
 
-    if (editionsRes && editionsRes.ok) {
-      const editionsJson = await editionsRes.json();
-      if (Array.isArray(editionsJson?.data)) {
-        for (const edition of editionsJson.data) {
-          const id = edition?.edition?.identifier;
-          if (id === 'quran-uthmani') uthmaniData = edition;
-          else if (id === 'en.sahih') enData = edition;
-          else if (id === 'ur.jalandhry') urData = edition;
-          else if (id === 'hi.hindi') hiData = edition;
-          else if (id === 'fr.hamidullah') frData = edition;
-          else if (id === 'id.indonesian') idData = edition;
-          else if (id === 'es.bornez') esData = edition;
-          else if (id === 'tr.yildirim') trData = edition;
+    try {
+      const editionsRes = await fetch(editionsUrl, { signal: controller.signal });
+      if (editionsRes && editionsRes.ok) {
+        const editionsJson = await editionsRes.json();
+        if (Array.isArray(editionsJson?.data)) {
+          for (const edition of editionsJson.data) {
+            const id = edition?.edition?.identifier;
+            if (id === 'quran-uthmani') uthmaniData = edition;
+            else if (id === 'en.sahih') enData = edition;
+            else if (id === 'ur.jalandhry') urData = edition;
+            else if (id === 'hi.hindi') hiData = edition;
+            else if (id === 'fr.hamidullah') frData = edition;
+            else if (id === 'id.indonesian') idData = edition;
+            else if (id === 'es.bornez') esData = edition;
+            else if (id === 'tr.yildirim') trData = edition;
+            else if (id === 'fa.fooladvand') faData = edition;
+            else if (id === 'bs.korkut') bsData = edition;
+          }
         }
       }
+    } catch (e) {
+      console.warn(`Multi-edition fetch for Surah ${surahNum} timed out or failed, falling back to direct endpoints...`);
+    } finally {
+      clearTimeout(timeoutId);
     }
 
-    // Fallback: If multi-edition failed or uthmani is missing, fetch uthmani directly
+    // Reliable fallback 1: If multi-edition failed or uthmani is missing, fetch core uthmani directly
     if (!uthmaniData) {
-      const singleRes = await fetch(`https://api.alquran.cloud/v1/surah/${surahNum}/quran-uthmani`).catch(() => null);
-      if (!singleRes || !singleRes.ok) throw new Error(`Failed to load Arabic text for Surah ${surahNum}`);
-      const singleJson = await singleRes.json();
+      const singleUthmaniRes = await fetch(`https://api.alquran.cloud/v1/surah/${surahNum}/quran-uthmani`);
+      if (!singleUthmaniRes.ok) throw new Error(`Failed to load Arabic text for Surah ${surahNum}`);
+      const singleJson = await singleUthmaniRes.json();
       uthmaniData = singleJson.data;
     }
 
-    let indopakMap: Record<number, string> = {};
-    if (indopakRes && indopakRes.ok) {
-      const indopakJson = await indopakRes.json();
-      if (indopakJson?.verses) {
-        for (const v of indopakJson.verses) {
-          const ayahNum = parseInt(v.verse_key.split(":")[1], 10);
-          indopakMap[ayahNum] = v.text_indopak || "";
+    // Reliable fallback 2: If English is missing, fetch directly
+    if (!enData) {
+      try {
+        const singleEnRes = await fetch(`https://api.alquran.cloud/v1/surah/${surahNum}/en.sahih`);
+        if (singleEnRes.ok) {
+          const singleEnJson = await singleEnRes.json();
+          enData = singleEnJson.data;
+        }
+      } catch (e) {}
+    }
+
+    // Reliable fallback 3: If Urdu is missing, fetch directly
+    if (!urData) {
+      try {
+        const singleUrRes = await fetch(`https://api.alquran.cloud/v1/surah/${surahNum}/ur.jalandhry`);
+        if (singleUrRes.ok) {
+          const singleUrJson = await singleUrRes.json();
+          urData = singleUrJson.data;
+        }
+      } catch (e) {}
+    }
+
+    // Reliable fallback 4: If Hindi is missing, fetch directly
+    if (!hiData) {
+      try {
+        const singleHiRes = await fetch(`https://api.alquran.cloud/v1/surah/${surahNum}/hi.hindi`);
+        if (singleHiRes.ok) {
+          const singleHiJson = await singleHiRes.json();
+          hiData = singleHiJson.data;
+        }
+      } catch (e) {}
+    }
+
+    // Authentic IndoPak script from Quran.com API (with stop signs ۖ ۙ ط ج etc.)
+    const indopakMap = new Map<number, string>();
+    try {
+      const indopakRes = await fetch(`https://api.quran.com/api/v4/quran/verses/indopak?chapter_number=${surahNum}`);
+      if (indopakRes.ok) {
+        const indopakJson = await indopakRes.json();
+        if (Array.isArray(indopakJson?.verses)) {
+          indopakJson.verses.forEach((v: any) => {
+            const verseKey = v.verse_key; // e.g. "67:1"
+            const parts = verseKey?.split(':');
+            const num = parts ? parseInt(parts[1], 10) : NaN;
+            if (!isNaN(num) && v.text_indopak) {
+              indopakMap.set(num, v.text_indopak);
+            }
+          });
         }
       }
+    } catch (e) {
+      console.warn(`IndoPak script fetch for Surah ${surahNum} skipped or failed:`, e);
     }
 
     const stripDiacritics = (str: string) => str.replace(/[\u064B-\u065F\u0670\u0671]/g, "").replace(/ٱ/g, "ا");
@@ -115,22 +210,58 @@ app.get("/api/surah/:number", async (req, res) => {
     };
 
     const rawAyahs = uthmaniData.ayahs || uthmaniData.data?.ayahs || [];
+    
+    // Create lookup maps by ayah number to ensure 100% accurate text matching for all editions
+    const enMap = new Map<number, string>();
+    (enData?.ayahs || enData?.data?.ayahs || []).forEach((a: any) => enMap.set(a.numberInSurah, a.text));
+
+    const urMap = new Map<number, string>();
+    (urData?.ayahs || urData?.data?.ayahs || []).forEach((a: any) => urMap.set(a.numberInSurah, a.text));
+
+    const hiMap = new Map<number, string>();
+    (hiData?.ayahs || hiData?.data?.ayahs || []).forEach((a: any) => hiMap.set(a.numberInSurah, a.text));
+
+    const frMap = new Map<number, string>();
+    (frData?.ayahs || frData?.data?.ayahs || []).forEach((a: any) => frMap.set(a.numberInSurah, a.text));
+
+    const idMap = new Map<number, string>();
+    (idData?.ayahs || idData?.data?.ayahs || []).forEach((a: any) => idMap.set(a.numberInSurah, a.text));
+
+    const esMap = new Map<number, string>();
+    (esData?.ayahs || esData?.data?.ayahs || []).forEach((a: any) => esMap.set(a.numberInSurah, a.text));
+
+    const trMap = new Map<number, string>();
+    (trData?.ayahs || trData?.data?.ayahs || []).forEach((a: any) => trMap.set(a.numberInSurah, a.text));
+
+    const faMap = new Map<number, string>();
+    (faData?.ayahs || faData?.data?.ayahs || []).forEach((a: any) => faMap.set(a.numberInSurah, a.text));
+
+    const bsMap = new Map<number, string>();
+    (bsData?.ayahs || bsData?.data?.ayahs || []).forEach((a: any) => bsMap.set(a.numberInSurah, a.text));
+
     const ayahs = rawAyahs.map((a: any) => {
       const num = a.numberInSurah;
       const rawArabic = a.text;
-      const rawIndopak = indopakMap[num] || a.text;
+
+      const rawEn = enMap.get(num) || enData?.ayahs?.[num - 1]?.text || "";
+      const rawUr = urMap.get(num) || urData?.ayahs?.[num - 1]?.text || "";
+      const rawHi = hiMap.get(num) || hiData?.ayahs?.[num - 1]?.text || "";
+
+      const rawIndopak = indopakMap.get(num);
 
       return {
         num,
         arabic: stripBismillah(rawArabic, num),
-        indopak: stripBismillah(rawIndopak, num),
-        english: enData?.ayahs?.[num - 1]?.text || "",
-        urdu: urData?.ayahs?.[num - 1]?.text || "",
-        hindi: hiData?.ayahs?.[num - 1]?.text || "",
-        french: frData?.ayahs?.[num - 1]?.text || "",
-        indonesian: idData?.ayahs?.[num - 1]?.text || "",
-        spanish: esData?.ayahs?.[num - 1]?.text || "",
-        turkish: trData?.ayahs?.[num - 1]?.text || ""
+        indopak: rawIndopak ? stripBismillah(rawIndopak, num) : stripBismillah(rawArabic, num),
+        english: rawEn || rawUr || rawHi || `Verse ${num}`,
+        urdu: rawUr || rawHi || rawEn || "",
+        hindi: rawHi || rawUr || rawEn || "",
+        french: frMap.get(num) || frData?.ayahs?.[num - 1]?.text || rawEn || "",
+        indonesian: idMap.get(num) || idData?.ayahs?.[num - 1]?.text || rawEn || "",
+        spanish: esMap.get(num) || esData?.ayahs?.[num - 1]?.text || rawEn || "",
+        turkish: trMap.get(num) || trData?.ayahs?.[num - 1]?.text || rawEn || "",
+        persian: faMap.get(num) || faData?.ayahs?.[num - 1]?.text || rawUr || "",
+        bosnian: bsMap.get(num) || bsData?.ayahs?.[num - 1]?.text || rawEn || ""
       };
     });
 
@@ -145,6 +276,9 @@ app.get("/api/surah/:number", async (req, res) => {
     };
 
     surahCache[surahNum] = surahMeta;
+    // Persist to disk cache
+    fs.promises.writeFile(path.join(SURAH_CACHE_DIR, `${surahNum}.json`), JSON.stringify(surahMeta), "utf8").catch(() => {});
+
     res.json({ status: "success", data: surahMeta });
   } catch (err: any) {
     console.error(`Error fetching surah ${surahNum}:`, err);
@@ -152,71 +286,248 @@ app.get("/api/surah/:number", async (req, res) => {
   }
 });
 
-// 3. Audio proxy for EveryAyah and external mp3s (avoids CORS issues in browser canvas/audio)
+// In-memory caches for fast sub-millisecond audio delivery and zero rate-limiting
+const audioProxyCache = new Map<string, { buffer: Buffer; contentType: string }>();
+const ttsCache = new Map<string, Buffer>();
+
+// 3. Audio proxy with caching, multi-mirror fallback & automatic retry
 app.get("/api/audio-proxy", async (req, res) => {
   const url = req.query.url as string;
   if (!url) {
     return res.status(400).json({ status: "error", message: "Missing url parameter" });
   }
 
-  try {
-    const audioRes = await fetch(url);
-    if (!audioRes.ok) {
-      return res.status(audioRes.status).send("Failed to fetch audio stream");
-    }
-
-    res.setHeader("Content-Type", audioRes.headers.get("content-type") || "audio/mpeg");
+  // Fast cache hit
+  if (audioProxyCache.has(url)) {
+    const cached = audioProxyCache.get(url)!;
+    res.setHeader("Content-Type", cached.contentType || "audio/mpeg");
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     res.setHeader("Access-Control-Allow-Origin", "*");
-
-    const arrayBuffer = await audioRes.arrayBuffer();
-    res.send(Buffer.from(arrayBuffer));
-  } catch (err: any) {
-    console.error("Audio proxy error:", err);
-    res.status(500).send("Proxy error: " + err.message);
+    return res.send(cached.buffer);
   }
+
+  // Derive alternate mirror URLs if url is from EveryAyah
+  const candidateUrls: string[] = [url];
+  if (url.includes("everyayah.com/data/")) {
+    if (url.includes("https://everyayah.com/")) {
+      candidateUrls.push(url.replace("https://everyayah.com/", "https://www.everyayah.com/"));
+      candidateUrls.push(url.replace("https://everyayah.com/", "http://everyayah.com/"));
+      candidateUrls.push(url.replace("https://everyayah.com/", "http://www.everyayah.com/"));
+    } else if (url.includes("https://www.everyayah.com/")) {
+      candidateUrls.push(url.replace("https://www.everyayah.com/", "https://everyayah.com/"));
+      candidateUrls.push(url.replace("https://www.everyayah.com/", "http://everyayah.com/"));
+    }
+  }
+
+  let lastError: any = null;
+
+  for (const candidateUrl of candidateUrls) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        const audioRes = await fetch(candidateUrl, {
+          signal: controller.signal,
+          headers: {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Referer": "https://everyayah.com/"
+          }
+        });
+        clearTimeout(timeout);
+
+        if (audioRes.ok) {
+          const contentType = audioRes.headers.get("content-type") || "audio/mpeg";
+          const arrayBuffer = await audioRes.arrayBuffer();
+          const buffer = Buffer.from(arrayBuffer);
+
+          if (buffer.length > 200) {
+            // Keep up to 5000 items in cache for large surah generations
+            if (audioProxyCache.size > 5000) {
+              const firstKey = audioProxyCache.keys().next().value;
+              if (firstKey) audioProxyCache.delete(firstKey);
+            }
+            audioProxyCache.set(url, { buffer, contentType });
+
+            res.setHeader("Content-Type", contentType);
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            return res.send(buffer);
+          }
+        }
+      } catch (err) {
+        lastError = err;
+      }
+      // Small backoff before next attempt
+      await new Promise((r) => setTimeout(r, 120 * (attempt + 1)));
+    }
+  }
+
+  console.error(`Audio proxy failed after all mirrors for ${url}:`, lastError);
+  res.status(500).send("Proxy error: " + (lastError?.message || "Failed to fetch audio stream"));
 });
 
-// Helper function to fetch and concatenate Google Translate TTS chunks
-async function fetchGoogleTTSBuffer(text: string, targetLang: string): Promise<Buffer> {
+// Helper function to normalize text and correct Islamic/Quranic pronunciation for TTS
+function cleanAndNormalizeTextForSpeech(rawText: string, targetLang: string): string {
+  if (!rawText) return "";
+  let text = rawText;
+
+  if (targetLang === 'ur' || targetLang.startsWith('ur')) {
+    text = text
+      // 1. Remove bracketed footnotes and numbers e.g. [1], (1), [۱], (۱)
+      .replace(/\[\d+\]|\(\d+\)|\[[۰-۹]+\]|\([۰-۹]+\)/g, '')
+      // 2. Strip parentheses, brackets, and quotes while keeping the words inside
+      .replace(/[\(\)\[\]\{\}«»\"\'\`]/g, '')
+      // 3. Correct Quranic and Islamic ligatures to optimal phonetic representations
+      .replace(/اللّٰه|الله/g, 'اللہ')
+      .replace(/رحمٰن/g, 'رحمان')
+      .replace(/تعالٰی|تعالیٰ/g, 'تعالی')
+      .replace(/ﷺ|صلعم/g, 'صلی اللہ علیہ وسلم')
+      .replace(/ﷻ/g, 'جل جلالہ')
+      .replace(/رض/g, 'رضی اللہ عنہ')
+      .replace(/رح/g, 'رحمۃ اللہ علیہ')
+      .replace(/ع\b/g, 'علیہ السلام')
+      .replace(/قرءان/g, 'قرآن')
+      .replace(/موسٰی/g, 'موسی')
+      .replace(/عیسٰی/g, 'عیسی')
+      .replace(/مصطفٰی/g, 'مصطفی')
+      .replace(/مجتبٰی/g, 'مجتبی')
+      .replace(/مرتضٰی/g, 'مرتضی')
+      .replace(/مولٰی/g, 'مولی')
+      // 4. Remove Arabic diacritics/harakat that distort Urdu TTS prosody
+      .replace(/[\u064B-\u065F\u0670]/g, '')
+      // 5. Replace colons and semicolons with soft Urdu pause commas
+      .replace(/[\:\;؛]/g, '، ')
+      // 6. Clean multiple spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+  } else if (targetLang === 'hi' || targetLang.startsWith('hi')) {
+    text = text
+      .replace(/\[\d+\]|\(\d+\)|\[[०-९]+\]|\([०-९]+\)/g, '')
+      .replace(/[\(\)\[\]\{\}«»\"\'\`]/g, '')
+      .replace(/[\:\;]/g, ', ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  } else {
+    // English & other Latin scripts
+    text = text
+      .replace(/\[\d+\]|\(\d+\)/g, '')
+      .replace(/[\(\)\[\]\{\}«»\"\'\`]/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  return text;
+}
+
+// Helper function to fetch and concatenate natural Google Translate TTS chunks with multi-client rotation and retry
+async function fetchGoogleTTSBuffer(rawText: string, targetLang: string): Promise<Buffer> {
   let lang = (targetLang || 'ur').toString().toLowerCase().trim();
   if (lang === 'ur-en') lang = 'ur';
   else if (lang === 'hi-en') lang = 'hi';
   else if (lang.includes('-')) lang = lang.split('-')[0];
   else if (lang.includes('_')) lang = lang.split('_')[0];
 
-  const chunks: string[] = [];
-  let currentChunk = "";
-  const words = text.split(/\s+/);
+  const text = cleanAndNormalizeTextForSpeech(rawText, lang);
+  if (!text) throw new Error("Empty text after normalization");
 
-  for (const word of words) {
-    if ((currentChunk + " " + word).trim().length <= 180) {
-      currentChunk = (currentChunk + " " + word).trim();
+  const cacheKey = `${lang}:${text}`;
+  if (ttsCache.has(cacheKey)) {
+    return ttsCache.get(cacheKey)!;
+  }
+
+  // Chunk by punctuation or natural breath pauses (max 140 chars per chunk for calm, human prosody)
+  const chunks: string[] = [];
+  const sentences = text.split(/([۔،\.!?,;\n]+)/);
+  let currentChunk = "";
+
+  for (let i = 0; i < sentences.length; i++) {
+    const part = sentences[i];
+    if (!part) continue;
+    if ((currentChunk + part).trim().length <= 140) {
+      currentChunk += part;
     } else {
-      if (currentChunk) chunks.push(currentChunk);
-      currentChunk = word;
+      if (currentChunk.trim()) chunks.push(currentChunk.trim());
+      currentChunk = part;
     }
   }
-  if (currentChunk) chunks.push(currentChunk);
+  if (currentChunk.trim()) chunks.push(currentChunk.trim());
 
-  const buffers: Buffer[] = [];
-  for (const chunk of chunks) {
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${lang}&client=tw-ob`;
-    const ttsRes = await fetch(ttsUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-      }
-    });
-    if (ttsRes.ok) {
-      const ab = await ttsRes.arrayBuffer();
-      buffers.push(Buffer.from(ab));
+  // Fallback word split if any chunk is still too long
+  const finalChunks: string[] = [];
+  for (const c of chunks) {
+    if (c.length <= 160) {
+      finalChunks.push(c);
     } else {
-      console.warn(`Google TTS failed for lang '${lang}' chunk: '${chunk.substring(0, 30)}', status: ${ttsRes.status}`);
+      const words = c.split(/\s+/);
+      let cur = "";
+      for (const w of words) {
+        if ((cur + " " + w).trim().length <= 140) {
+          cur = (cur + " " + w).trim();
+        } else {
+          if (cur) finalChunks.push(cur);
+          cur = w;
+        }
+      }
+      if (cur) finalChunks.push(cur);
+    }
+  }
+
+  const clientRotations = ['tw-ob', 'gtx', 'dict-chrome-ex', 'webapp'];
+  const buffers: Buffer[] = [];
+
+  for (const chunk of finalChunks) {
+    let chunkBuffer: Buffer | null = null;
+
+    for (const client of clientRotations) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=${lang}&client=${client}`;
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 6000);
+
+          const ttsRes = await fetch(ttsUrl, {
+            signal: controller.signal,
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+              "Referer": "https://translate.google.com/"
+            }
+          });
+          clearTimeout(timeout);
+
+          if (ttsRes.ok) {
+            const ab = await ttsRes.arrayBuffer();
+            const b = Buffer.from(ab);
+            if (b.length > 100) {
+              chunkBuffer = b;
+              break;
+            }
+          }
+        } catch (e) {
+          // Retry on next attempt or client
+        }
+        await new Promise((r) => setTimeout(r, 100 * (attempt + 1)));
+      }
+      if (chunkBuffer) break;
+    }
+
+    if (chunkBuffer) {
+      buffers.push(chunkBuffer);
+    } else {
+      console.warn(`TTS generation could not fetch chunk for lang '${lang}': '${chunk.substring(0, 30)}'`);
     }
   }
 
   if (buffers.length === 0) throw new Error(`TTS Generation failed for language: ${lang}`);
-  return Buffer.concat(buffers);
+  
+  const result = Buffer.concat(buffers);
+  if (ttsCache.size > 2000) {
+    const firstKey = ttsCache.keys().next().value;
+    if (firstKey) ttsCache.delete(firstKey);
+  }
+  ttsCache.set(cacheKey, result);
+
+  return result;
 }
 
 // 4. TTS Proxy / Web Speech helper API
@@ -263,10 +574,233 @@ app.post("/api/tts", async (req, res) => {
   }
 });
 
+// 7. Fast & Ultra-Reliable Video Concat & Transcoding Endpoint for Batch Export
+// Merges all batch MP4/WebM clips into one continuous, 100% universal standard MP4 file
+// (Guaranteed H.264 High 4.1 + YUV420p + AAC Stereo 44.1kHz + Faststart for universal playback on Windows Media Player, QuickTime, mobile & TV)
+app.post("/api/merge-videos", mergeUpload.array("videos"), async (req, res) => {
+  // Allow up to 15 minutes for massive surahs like Al-Baqarah (286 ayahs)
+  req.setTimeout(15 * 60 * 1000);
+  res.setTimeout(15 * 60 * 1000);
+
+  const files = (req.files as Express.Multer.File[]) || [];
+  if (!files || files.length === 0) {
+    return res.status(400).json({ status: "error", message: "No video files provided for merging." });
+  }
+
+  const sessionDir = path.join(mergeUploadDir, `session_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+  fs.mkdirSync(sessionDir, { recursive: true });
+
+  const listFilePath = path.join(sessionDir, "concat_list.txt");
+  const outputFilePath = path.join(sessionDir, "merged_master.mp4");
+
+  let isCleanedUp = false;
+  const cleanup = () => {
+    if (isCleanedUp) return;
+    isCleanedUp = true;
+    try {
+      files.forEach((f) => {
+        if (f.path && fs.existsSync(f.path)) fs.unlinkSync(f.path);
+      });
+      if (fs.existsSync(listFilePath)) fs.unlinkSync(listFilePath);
+      if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+      if (fs.existsSync(sessionDir)) fs.rmdirSync(sessionDir);
+    } catch (cleanupErr) {
+      console.warn("Cleanup warning:", cleanupErr);
+    }
+  };
+
+  try {
+    // Sort files sequentially by clip index
+    const getClipIndex = (name: string): number => {
+      const match = (name || "").match(/clip_(\d+)/i);
+      if (match) return parseInt(match[1], 10);
+      const digits = (name || "").replace(/\D+/g, "");
+      return digits ? parseInt(digits, 10) : 0;
+    };
+
+    const sortedFiles = [...files].sort((a, b) => getClipIndex(a.originalname) - getClipIndex(b.originalname));
+
+    if (sortedFiles.length === 1) {
+      // Single clip: direct transcode to universal MP4
+      await execFileAsync("ffmpeg", [
+        "-y",
+        "-fflags", "+genpts",
+        "-i", sortedFiles[0].path,
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
+        "-r", "30",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "22",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "44100",
+        "-ac", "2",
+        "-af", "aresample=async=1000:first_pts=0",
+        "-movflags", "+faststart",
+        outputFilePath
+      ]);
+    } else {
+      // Multiple clips: first try concat demuxer with ultrafast settings
+      let concatSuccess = false;
+      try {
+        const listContent = sortedFiles.map((file) => `file '${file.path.replace(/'/g, "'\\''")}'`).join("\n");
+        fs.writeFileSync(listFilePath, listContent, "utf8");
+
+        await execFileAsync("ffmpeg", [
+          "-y",
+          "-fflags", "+genpts",
+          "-f", "concat",
+          "-safe", "0",
+          "-i", listFilePath,
+          "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
+          "-r", "30",
+          "-c:v", "libx264",
+          "-preset", "ultrafast",
+          "-crf", "22",
+          "-pix_fmt", "yuv420p",
+          "-c:a", "aac",
+          "-b:a", "192k",
+          "-ar", "44100",
+          "-ac", "2",
+          "-af", "aresample=async=1000:first_pts=0",
+          "-movflags", "+faststart",
+          outputFilePath
+        ]);
+
+        if (fs.existsSync(outputFilePath) && fs.statSync(outputFilePath).size > 1000) {
+          concatSuccess = true;
+        }
+      } catch (demuxerErr) {
+        console.warn("Concat demuxer failed, falling back to filter_complex concat:", demuxerErr);
+      }
+
+      // Robust fallback: if demuxer failed, use filter_complex concat
+      if (!concatSuccess) {
+        const inputArgs: string[] = [];
+        let filterParts: string[] = [];
+        sortedFiles.forEach((file, idx) => {
+          inputArgs.push("-i", file.path);
+          filterParts.push(`[${idx}:v][${idx}:a]`);
+        });
+
+        const filterStr = `${filterParts.join("")}concat=n=${sortedFiles.length}:v=1:a=1[cv][ca];[cv]scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[outv];[ca]aresample=async=1000:first_pts=0[outa]`;
+
+        await execFileAsync("ffmpeg", [
+          "-y",
+          ...inputArgs,
+          "-filter_complex", filterStr,
+          "-map", "[outv]",
+          "-map", "[outa]",
+          "-r", "30",
+          "-c:v", "libx264",
+          "-preset", "ultrafast",
+          "-crf", "22",
+          "-pix_fmt", "yuv420p",
+          "-c:a", "aac",
+          "-b:a", "192k",
+          "-ar", "44100",
+          "-ac", "2",
+          "-movflags", "+faststart",
+          outputFilePath
+        ]);
+      }
+    }
+
+    if (!fs.existsSync(outputFilePath) || fs.statSync(outputFilePath).size < 1000) {
+      throw new Error("FFmpeg finished but output merged MP4 file was not created or was empty.");
+    }
+
+    res.setHeader("Content-Disposition", 'attachment; filename="merged_master.mp4"');
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Accept-Ranges", "bytes");
+
+    res.sendFile(outputFilePath, (sendErr) => {
+      if (sendErr) {
+        console.error("Error during merged video streaming:", sendErr);
+      }
+      cleanup();
+    });
+  } catch (err: any) {
+    console.error("Video merge error:", err);
+    cleanup();
+    res.status(500).json({ status: "error", message: err.message || "Failed to merge video files" });
+  }
+});
+
+// 8. Single Video MP4 Universal Transcoder (H.264 + AAC with FastStart)
+app.post("/api/convert-to-mp4", mergeUpload.single("video"), async (req, res) => {
+  req.setTimeout(10 * 60 * 1000);
+  res.setTimeout(10 * 60 * 1000);
+
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ status: "error", message: "No video provided for conversion" });
+  }
+
+  const requestedFilename = (req.body?.filename || "quran_video_universal.mp4").replace(/[^a-zA-Z0-9_.-]/g, "_");
+  const outputFilePath = path.join(mergeUploadDir, `converted_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.mp4`);
+  
+  const cleanup = () => {
+    try {
+      if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+    } catch {}
+  };
+
+  try {
+    // Universal Media Player Compatible Transcode
+    // - H.264 video with yuv420p (guaranteed playback in Windows Media Player & QuickTime)
+    // - AAC stereo audio at 44100Hz with async resampler (prevents audio dropouts)
+    // - FastStart enabled (moov atom at head of file for instant playback)
+    await execFileAsync("ffmpeg", [
+      "-y",
+      "-fflags", "+genpts",
+      "-i", file.path,
+      "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
+      "-r", "30",
+      "-c:v", "libx264",
+      "-preset", "ultrafast",
+      "-crf", "22",
+      "-pix_fmt", "yuv420p",
+      "-c:a", "aac",
+      "-b:a", "192k",
+      "-ar", "44100",
+      "-ac", "2",
+      "-af", "aresample=async=1000:first_pts=0",
+      "-movflags", "+faststart",
+      outputFilePath
+    ]);
+
+    if (!fs.existsSync(outputFilePath) || fs.statSync(outputFilePath).size < 1000) {
+      throw new Error("Transcode finished but output MP4 file was empty or missing.");
+    }
+
+    res.setHeader("Content-Disposition", `attachment; filename="${requestedFilename}"`);
+    res.setHeader("Content-Type", "video/mp4");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "no-cache");
+
+    res.sendFile(outputFilePath, (sendErr) => {
+      if (sendErr) {
+        console.error("Error sending converted MP4:", sendErr);
+      }
+      cleanup();
+    });
+  } catch (err: any) {
+    console.error("MP4 Transcode error:", err);
+    cleanup();
+    res.status(500).json({ status: "error", message: err?.message || "Failed to convert video to universal MP4" });
+  }
+});
+
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        allowedHosts: true,
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -278,9 +812,14 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Quran Video Maker Server running on http://0.0.0.0:${PORT}`);
   });
+  server.setTimeout(15 * 60 * 1000);
+  server.keepAliveTimeout = 65000;
 }
 
-startServer();
+startServer().catch((err) => {
+  console.error("Failed to start Quran Video Maker server:", err);
+  process.exit(1);
+});

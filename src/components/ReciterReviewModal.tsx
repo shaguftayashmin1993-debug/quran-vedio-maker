@@ -84,6 +84,12 @@ export const ReciterReviewModal: React.FC<ReciterReviewModalProps> = ({
     let audio: HTMLAudioElement;
     if (!isArabicQari && item.folder.startsWith('tts-')) {
       const trLang = (item as TranslationReciter).lang;
+      let voiceProfile = 'standard';
+      if (item.folder === 'tts-ur-scholar') voiceProfile = 'scholar-mature-baritone';
+      else if (item.folder === 'tts-ur-bayan') voiceProfile = 'elder-bayan-warm';
+      else if (item.folder === 'tts-ur-mufti') voiceProfile = 'mufti-deep-resonant';
+      else if (item.folder === 'tts-ur-muallim') voiceProfile = 'gentle-muallim-narrator';
+
       const sampleText = (trLang === 'ur' || trLang === 'ur-en')
         ? (trLang === 'ur-en'
             ? 'تمام تعریفیں اللہ کے لیے ہیں — All praise is due to Allah, Lord of all the worlds.'
@@ -97,7 +103,7 @@ export const ReciterReviewModal: React.FC<ReciterReviewModalProps> = ({
       fetch('/api/tts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: sampleText, lang: trLang || 'ur' })
+        body: JSON.stringify({ text: sampleText, lang: trLang || 'ur', voiceProfile })
       })
         .then((res) => {
           if (!res.ok) throw new Error(`TTS HTTP error ${res.status}`);
@@ -518,10 +524,19 @@ export const ReciterReviewModal: React.FC<ReciterReviewModalProps> = ({
                         <button
                           type="button"
                           onClick={() => {
+                            let profile: any = 'standard';
+                            if (tr.folder === 'tts-ur-scholar') profile = 'scholar-mature-baritone';
+                            else if (tr.folder === 'tts-ur-bayan') profile = 'elder-bayan-warm';
+                            else if (tr.folder === 'tts-ur-mufti') profile = 'mufti-deep-resonant';
+                            else if (tr.folder === 'tts-ur-muallim') profile = 'gentle-muallim-narrator';
+                            else if (tr.folder.includes('farhat')) profile = 'dignified-female-scholar';
+                            else if (tr.folder.includes('shamshad')) profile = 'authentic-human';
+
                             onChange({
                               translationReciterFolder: tr.folder,
                               translationReciterName: tr.name,
-                              translationLang: tr.lang
+                              voiceProfile: profile,
+                              baritoneResonance: profile !== 'standard' && profile !== 'authentic-human'
                             });
                           }}
                           className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${

@@ -1,12 +1,28 @@
-import React from 'react';
-import { Film, Sparkles, BookOpen, Mic, FolderHeart, RotateCcw } from 'lucide-react';
+import React, { useState } from 'react';
+import {
+  Film,
+  Sparkles,
+  BookOpen,
+  Mic,
+  FolderHeart,
+  RotateCcw,
+  ShieldCheck,
+  Users,
+  LogOut,
+  User,
+  Crown,
+  KeyRound,
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface HeaderProps {
   activeTab: 'studio' | 'audio' | 'library';
   setActiveTab: (tab: 'studio' | 'audio' | 'library') => void;
   savedCount: number;
   hasIncompleteTask?: boolean;
+  isTaskCompleted?: boolean;
   onResumeTaskClick?: () => void;
+  onOpenAdminAccess?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -14,10 +30,17 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   savedCount,
   hasIncompleteTask,
-  onResumeTaskClick
+  isTaskCompleted,
+  onResumeTaskClick,
+  onOpenAdminAccess,
 }) => {
+  const { user, isOwner, isAdmin, userRole, subscriptionPlan, logout, pendingRequests } = useAuth();
+  const [showUserDropdown, setShowUserDropdown] = useState(false);
+
+  const pendingCount = pendingRequests.filter((r) => r.status === 'pending').length;
+
   return (
-    <header className="sticky top-0 z-40 bg-[#0b1220]/90 backdrop-blur-md border-b border-amber-500/20 px-4 lg:px-8 py-3.5">
+    <header className="sticky top-0 z-40 bg-[#0b1220]/95 backdrop-blur-md border-b border-amber-500/20 px-4 lg:px-8 py-3.5">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Logo & Title */}
         <div className="flex items-center gap-3">
@@ -41,9 +64,20 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Navigation Tabs & Resume Task Button */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {hasIncompleteTask && onResumeTaskClick && (
+        {/* Navigation Tabs, Admin Access & Profile */}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          {isTaskCompleted && onResumeTaskClick && (
+            <button
+              onClick={onResumeTaskClick}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-500/20 to-emerald-600/30 hover:from-emerald-500/30 hover:to-emerald-600/40 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold shadow-md shadow-emerald-500/10 transition-all cursor-pointer"
+              title="Full video completed and ready to download"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Full Video Ready (Download)</span>
+            </button>
+          )}
+
+          {!isTaskCompleted && hasIncompleteTask && onResumeTaskClick && (
             <button
               onClick={onResumeTaskClick}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-amber-600/30 hover:from-amber-500/30 hover:to-amber-600/40 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-semibold shadow-md shadow-amber-500/10 transition-all animate-pulse"
@@ -54,10 +88,11 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          <nav className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+          {/* Main Workspace Tabs */}
+          <nav className="flex items-center gap-1 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
             <button
               onClick={() => setActiveTab('studio')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'studio'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -69,7 +104,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               onClick={() => setActiveTab('audio')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'audio'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -81,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             <button
               onClick={() => setActiveTab('library')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-semibold transition-all ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 activeTab === 'library'
                   ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md shadow-amber-500/20'
                   : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
@@ -96,6 +131,85 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
           </nav>
+
+          {/* Admin Control Button */}
+          {isAdmin && onOpenAdminAccess && (
+            <button
+              type="button"
+              onClick={onOpenAdminAccess}
+              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              <ShieldCheck className="w-4 h-4 text-amber-400" />
+              <span>Manage Access &amp; Subscribers</span>
+              {pendingCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[10px] font-black animate-pulse">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* User Profile & Subscription Badge */}
+          {user && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowUserDropdown(!showUserDropdown)}
+                className="flex items-center gap-2 p-1.5 pr-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition-colors cursor-pointer"
+              >
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center justify-center text-xs font-bold">
+                  {user.email ? user.email[0].toUpperCase() : 'U'}
+                </div>
+                <div className="text-left hidden sm:block">
+                  <div className="text-[11px] font-bold text-slate-200 leading-tight truncate max-w-[110px]">
+                    {user.displayName || user.email?.split('@')[0]}
+                  </div>
+                  <div className="text-[9px] text-amber-400 flex items-center gap-0.5">
+                    {isOwner ? 'Owner' : userRole === 'admin' ? 'Admin' : 'Subscriber'}
+                  </div>
+                </div>
+              </button>
+
+              {/* User Dropdown */}
+              {showUserDropdown && (
+                <div className="absolute right-0 mt-2 w-56 bg-[#0e172a] border border-slate-700/80 rounded-2xl shadow-2xl p-2.5 z-50 animate-fade-in space-y-2">
+                  <div className="p-2 border-b border-slate-800">
+                    <div className="text-xs font-bold text-slate-100 truncate">{user.email}</div>
+                    <div className="text-[10px] text-amber-300 mt-0.5 flex items-center gap-1 font-semibold">
+                      <Crown className="w-3 h-3 text-amber-400" />
+                      <span>{subscriptionPlan || 'Authorized Member'}</span>
+                    </div>
+                  </div>
+
+                  {isAdmin && onOpenAdminAccess && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserDropdown(false);
+                        onOpenAdminAccess();
+                      }}
+                      className="w-full p-2 rounded-xl text-left text-xs text-amber-300 hover:bg-amber-500/15 flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      <Users className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Manage Allowed Users</span>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowUserDropdown(false);
+                      logout();
+                    }}
+                    className="w-full p-2 rounded-xl text-left text-xs text-red-400 hover:bg-red-500/15 flex items-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <LogOut className="w-3.5 h-3.5 text-red-400" />
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </header>
