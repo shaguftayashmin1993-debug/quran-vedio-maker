@@ -574,6 +574,30 @@ app.post("/api/tts", async (req, res) => {
   }
 });
 
+// Helper to safely execute ffmpeg with expanded buffer and warning log level
+async function runFfmpeg(args: string[], timeoutMs = 15 * 60 * 1000): Promise<{ stdout: string; stderr: string }> {
+  return execFileAsync("ffmpeg", args, {
+    maxBuffer: 100 * 1024 * 1024, // 100MB buffer prevents stderr maxBuffer errors on long surahs
+    timeout: timeoutMs
+  });
+}
+
+// Helper to check if a media file contains an audio stream
+async function hasAudioStream(filePath: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileAsync("ffprobe", [
+      "-v", "error",
+      "-select_streams", "a",
+      "-show_entries", "stream=codec_name",
+      "-of", "default=noprint_wrappers=1:nokey=1",
+      filePath
+    ], { maxBuffer: 10 * 1024 * 1024 });
+    return stdout.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 // 7. Fast & Ultra-Reliable Video Concat & Transcoding Endpoint for Batch Export
 // Merges all batch MP4/WebM clips into one continuous, 100% universal standard MP4 file
 // (Guaranteed H.264 High 4.1 + YUV420p + AAC Stereo 44.1kHz + Faststart for universal playback on Windows Media Player, QuickTime, mobile & TV)
@@ -622,24 +646,32 @@ app.post("/api/merge-videos", mergeUpload.array("videos"), async (req, res) => {
 
     if (sortedFiles.length === 1) {
       // Single clip: direct transcode to universal MP4
-      await execFileAsync("ffmpeg", [
+      const audioExists = await hasAudioStream(sortedFiles[0].path);
+      const args = [
         "-y",
+        "-loglevel", "warning",
         "-fflags", "+genpts",
         "-i", sortedFiles[0].path,
+        ...(audioExists ? [] : ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100"]),
+        "-max_muxing_queue_size", "10240",
         "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
         "-r", "30",
+        "-vsync", "cfr",
         "-c:v", "libx264",
         "-preset", "ultrafast",
         "-crf", "22",
         "-pix_fmt", "yuv420p",
+        "-profile:v", "high",
+        "-level", "4.1",
         "-c:a", "aac",
         "-b:a", "192k",
         "-ar", "44100",
         "-ac", "2",
-        "-af", "aresample=async=1000:first_pts=0",
+        ...(audioExists ? ["-af", "aresample=async=1000:first_pts=0"] : ["-shortest"]),
         "-movflags", "+faststart",
         outputFilePath
-      ]);
+      ];
+      await runFfmpeg(args);
     } else {
       // Multiple clips: first try concat demuxer with ultrafast settings
       let concatSuccess = false;
@@ -647,18 +679,23 @@ app.post("/api/merge-videos", mergeUpload.array("videos"), async (req, res) => {
         const listContent = sortedFiles.map((file) => `file '${file.path.replace(/'/g, "'\\''")}'`).join("\n");
         fs.writeFileSync(listFilePath, listContent, "utf8");
 
-        await execFileAsync("ffmpeg", [
+        await runFfmpeg([
           "-y",
+          "-loglevel", "warning",
           "-fflags", "+genpts",
           "-f", "concat",
           "-safe", "0",
           "-i", listFilePath,
+          "-max_muxing_queue_size", "10240",
           "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
           "-r", "30",
+          "-vsync", "cfr",
           "-c:v", "libx264",
           "-preset", "ultrafast",
           "-crf", "22",
           "-pix_fmt", "yuv420p",
+          "-profile:v", "high",
+          "-level", "4.1",
           "-c:a", "aac",
           "-b:a", "192k",
           "-ar", "44100",
@@ -686,17 +723,22 @@ app.post("/api/merge-videos", mergeUpload.array("videos"), async (req, res) => {
 
         const filterStr = `${filterParts.join("")}concat=n=${sortedFiles.length}:v=1:a=1[cv][ca];[cv]scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p[outv];[ca]aresample=async=1000:first_pts=0[outa]`;
 
-        await execFileAsync("ffmpeg", [
+        await runFfmpeg([
           "-y",
+          "-loglevel", "warning",
           ...inputArgs,
           "-filter_complex", filterStr,
           "-map", "[outv]",
           "-map", "[outa]",
+          "-max_muxing_queue_size", "10240",
           "-r", "30",
+          "-vsync", "cfr",
           "-c:v", "libx264",
           "-preset", "ultrafast",
           "-crf", "22",
           "-pix_fmt", "yuv420p",
+          "-profile:v", "high",
+          "-level", "4.1",
           "-c:a", "aac",
           "-b:a", "192k",
           "-ar", "44100",
@@ -728,10 +770,11 @@ app.post("/api/merge-videos", mergeUpload.array("videos"), async (req, res) => {
   }
 });
 
-// 8. Single Video MP4 Universal Transcoder (H.264 + AAC with FastStart)
+// 8. Single Video MP4 Universal Transcoder (H.264 High 4.1 + AAC Stereo with FastStart)
+// Guarantees zero "unsupported codec / format" errors in Windows Media Player, QuickTime, Android, iOS & TVs
 app.post("/api/convert-to-mp4", mergeUpload.single("video"), async (req, res) => {
-  req.setTimeout(10 * 60 * 1000);
-  res.setTimeout(10 * 60 * 1000);
+  req.setTimeout(15 * 60 * 1000);
+  res.setTimeout(15 * 60 * 1000);
 
   const file = req.file;
   if (!file) {
@@ -749,28 +792,79 @@ app.post("/api/convert-to-mp4", mergeUpload.single("video"), async (req, res) =>
   };
 
   try {
-    // Universal Media Player Compatible Transcode
-    // - H.264 video with yuv420p (guaranteed playback in Windows Media Player & QuickTime)
-    // - AAC stereo audio at 44100Hz with async resampler (prevents audio dropouts)
-    // - FastStart enabled (moov atom at head of file for instant playback)
-    await execFileAsync("ffmpeg", [
-      "-y",
-      "-fflags", "+genpts",
-      "-i", file.path,
-      "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
-      "-r", "30",
-      "-c:v", "libx264",
-      "-preset", "ultrafast",
-      "-crf", "22",
-      "-pix_fmt", "yuv420p",
-      "-c:a", "aac",
-      "-b:a", "192k",
-      "-ar", "44100",
-      "-ac", "2",
-      "-af", "aresample=async=1000:first_pts=0",
-      "-movflags", "+faststart",
-      outputFilePath
-    ]);
+    const audioExists = await hasAudioStream(file.path);
+
+    let ffmpegArgs: string[];
+    if (audioExists) {
+      ffmpegArgs = [
+        "-y",
+        "-loglevel", "warning",
+        "-fflags", "+genpts",
+        "-i", file.path,
+        "-max_muxing_queue_size", "10240",
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
+        "-r", "30",
+        "-vsync", "cfr",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "22",
+        "-pix_fmt", "yuv420p",
+        "-profile:v", "high",
+        "-level", "4.1",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "44100",
+        "-ac", "2",
+        "-af", "aresample=async=1000:first_pts=0",
+        "-movflags", "+faststart",
+        outputFilePath
+      ];
+    } else {
+      // Synthesize silent stereo audio to guarantee all media players and social apps accept the MP4
+      ffmpegArgs = [
+        "-y",
+        "-loglevel", "warning",
+        "-fflags", "+genpts",
+        "-i", file.path,
+        "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+        "-max_muxing_queue_size", "10240",
+        "-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2,format=yuv420p",
+        "-r", "30",
+        "-vsync", "cfr",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-crf", "22",
+        "-pix_fmt", "yuv420p",
+        "-profile:v", "high",
+        "-level", "4.1",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-ar", "44100",
+        "-ac", "2",
+        "-shortest",
+        "-movflags", "+faststart",
+        outputFilePath
+      ];
+    }
+
+    try {
+      await runFfmpeg(ffmpegArgs);
+    } catch (primaryErr) {
+      console.warn("Primary MP4 encode warning, attempting failsafe transcode:", primaryErr);
+      await runFfmpeg([
+        "-y",
+        "-loglevel", "warning",
+        "-i", file.path,
+        "-max_muxing_queue_size", "10240",
+        "-c:v", "libx264",
+        "-preset", "ultrafast",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "128k",
+        "-movflags", "+faststart",
+        outputFilePath
+      ]);
+    }
 
     if (!fs.existsSync(outputFilePath) || fs.statSync(outputFilePath).size < 1000) {
       throw new Error("Transcode finished but output MP4 file was empty or missing.");
@@ -791,6 +885,62 @@ app.post("/api/convert-to-mp4", mergeUpload.single("video"), async (req, res) =>
     console.error("MP4 Transcode error:", err);
     cleanup();
     res.status(500).json({ status: "error", message: err?.message || "Failed to convert video to universal MP4" });
+  }
+});
+
+// 9. Audio Universal Transcoder to Genuine MP3 (192kbps, 44.1kHz, ID3v2 tagged)
+// Guarantees zero "unsupported audio" errors on car players, phones, and media software
+app.post("/api/convert-to-mp3", mergeUpload.single("audio"), async (req, res) => {
+  req.setTimeout(5 * 60 * 1000);
+  res.setTimeout(5 * 60 * 1000);
+
+  const file = req.file;
+  if (!file) {
+    return res.status(400).json({ status: "error", message: "No audio provided for conversion" });
+  }
+
+  const requestedFilename = (req.body?.filename || "quran_recitation.mp3").replace(/[^a-zA-Z0-9_.-]/g, "_");
+  const outputFilePath = path.join(mergeUploadDir, `converted_${Date.now()}_${Math.random().toString(36).slice(2, 6)}.mp3`);
+
+  const cleanup = () => {
+    try {
+      if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
+    } catch {}
+  };
+
+  try {
+    await runFfmpeg([
+      "-y",
+      "-loglevel", "warning",
+      "-i", file.path,
+      "-c:a", "libmp3lame",
+      "-b:a", "192k",
+      "-ar", "44100",
+      "-ac", "2",
+      "-id3v2_version", "3",
+      outputFilePath
+    ]);
+
+    if (!fs.existsSync(outputFilePath) || fs.statSync(outputFilePath).size < 500) {
+      throw new Error("Audio transcode failed or output MP3 was empty.");
+    }
+
+    res.setHeader("Content-Disposition", `attachment; filename="${requestedFilename}"`);
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Cache-Control", "no-cache");
+
+    res.sendFile(outputFilePath, (sendErr) => {
+      if (sendErr) {
+        console.error("Error sending converted MP3:", sendErr);
+      }
+      cleanup();
+    });
+  } catch (err: any) {
+    console.error("MP3 Transcode error:", err);
+    cleanup();
+    res.status(500).json({ status: "error", message: err?.message || "Failed to convert audio to universal MP3" });
   }
 });
 

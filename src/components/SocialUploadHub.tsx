@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Share2, Youtube, Instagram, UploadCloud, Copy, Check, ExternalLink, Globe, Lock, Send, Smartphone, Loader2, Sparkles, Key, CheckCircle2, LogOut, Info, HelpCircle } from 'lucide-react';
+import { triggerSafeDownload } from '../utils/downloadUtils';
 
 interface SocialUploadHubProps {
   videoBlob: Blob | null;
@@ -114,14 +115,10 @@ export const SocialUploadHub: React.FC<SocialUploadHubProps> = ({
   };
 
   // 1. Web Share API for direct mobile/desktop app selection (Instagram Reels, TikTok, WhatsApp, etc.)
-  const triggerDownloadFallback = () => {
-    if (videoUrl) {
-      const a = document.createElement('a');
-      a.href = videoUrl;
-      a.download = `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+  const triggerDownloadFallback = async () => {
+    const source = videoBlob || videoUrl;
+    if (source) {
+      await triggerSafeDownload(source, `${title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`);
     }
   };
 

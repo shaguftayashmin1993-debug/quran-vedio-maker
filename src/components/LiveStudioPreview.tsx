@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Download, RefreshCw, AlertCircle, Layers } from 'lucide-react';
 import { Surah, Ayah, VideoConfig, TranslationLang, TextSize } from '../types';
 import { getAudioUrl } from '../data/reciters';
-import { drawAyahFrame, drawTitleFrame, drawBismillahFrame, subscribeBackgroundImageLoad } from '../utils/canvasRenderer';
+import { drawAyahFrame, drawTitleFrame, drawBismillahFrame, subscribeBackgroundImageLoad, ensureBackgroundImageLoaded } from '../utils/canvasRenderer';
 import { getAyahTranslationText, getSpokenTranslationTextAndLang } from '../utils/translationUtils';
 
 interface LiveStudioPreviewProps {
@@ -40,10 +40,14 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
 
   // Re-draw when background image finishes loading in background
   useEffect(() => {
-    return subscribeBackgroundImageLoad(() => {
+    const unsub = subscribeBackgroundImageLoad(() => {
       setRenderTrigger((prev) => prev + 1);
     });
-  }, []);
+    ensureBackgroundImageLoaded(config.bgImageCategory).then(() => {
+      setRenderTrigger((prev) => prev + 1);
+    });
+    return unsub;
+  }, [config.bgImageCategory]);
 
   // Filter ayahs based on start & end ayah range with robust auto-clamping
   const ayahsInRange = React.useMemo(() => {

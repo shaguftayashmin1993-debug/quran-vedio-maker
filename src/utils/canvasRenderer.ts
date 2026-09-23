@@ -25,30 +25,45 @@ export function toArabicDigits(num: number): string {
   return String(num).replace(/[0-9]/g, (w) => digits[parseInt(w, 10)]);
 }
 
-// Curated royalty-free Islamic & pure natural scenery background image URLs (Strictly 100% human-free & animal-free: pure Islamic architecture, noble manuscripts, and pristine nature only)
+// Curated royalty-free Islamic & pure natural scenery background image URLs (Strictly 100% human-free & animal-free: pure Islamic architecture, noble manuscripts, and pristine nature only in 4K resolution)
 const BG_IMAGE_URLS: Record<string, string> = {
-  'holy-kaaba-makkah': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=1600&auto=format&fit=crop',
-  'kaaba-kiswah-gold': 'https://images.unsplash.com/photo-1590076215667-875d4ef2d7ee?q=80&w=1600&auto=format&fit=crop',
-  'prophets-mosque-madinah': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=80&w=1600&auto=format&fit=crop',
-  'masjid-al-aqsa-dome': 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=80&w=1600&auto=format&fit=crop',
-  'makkah-grand-mosque-minarets': 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=80&w=1600&auto=format&fit=crop',
-  'islamic-geometric-calligraphy': 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=1600&auto=format&fit=crop',
+  // 4K Makkah Al-Mukarramah
+  'makkah-kaaba-majestic': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=85&w=2560&auto=format&fit=crop',
+  'holy-kaaba-makkah': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=85&w=2560&auto=format&fit=crop',
+  'makkah-clock-tower-night': 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=85&w=2560&auto=format&fit=crop',
+  'kaaba-kiswah-gold': 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=85&w=2560&auto=format&fit=crop',
+  'makkah-grand-minarets': 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=85&w=2560&auto=format&fit=crop',
+  'makkah-grand-mosque-minarets': 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=85&w=2560&auto=format&fit=crop',
+  'makkah-haram-golden-night': 'https://images.unsplash.com/photo-1519817650390-64a93db51149?q=85&w=2560&auto=format&fit=crop',
+  'makkah-spire-skyline': 'https://images.unsplash.com/photo-1585036156171-384164a8c675?q=85&w=2560&auto=format&fit=crop',
+
+  // 4K Madinah Al-Munawwarah
+  'madinah-green-dome': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=85&w=2560&auto=format&fit=crop',
+  'prophets-mosque-madinah': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=85&w=2560&auto=format&fit=crop',
+  'madinah-giant-umbrellas': 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=85&w=2560&auto=format&fit=crop',
+  'madinah-sacred-arches': 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=85&w=2560&auto=format&fit=crop',
+  'madinah-minaret-sunset': 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=85&w=2560&auto=format&fit=crop',
+  'madinah-marble-courtyard': 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=85&w=2560&auto=format&fit=crop',
+
+  // Sacred Islamic Architecture & Natural Scenery
+  'masjid-al-aqsa-dome': 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=85&w=2560&auto=format&fit=crop',
+  'islamic-geometric-calligraphy': 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=85&w=2560&auto=format&fit=crop',
   'scholar-study': 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=1200&auto=format&fit=crop',
-  'symbolic-twilight-desert': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1200&auto=format&fit=crop',
+  'symbolic-twilight-desert': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=85&w=2560&auto=format&fit=crop',
   'symbolic-ancient-marketplace': 'https://images.unsplash.com/photo-1548013146-72479768bada?q=80&w=1200&auto=format&fit=crop',
   'symbolic-divine-light': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop',
   'symbolic-divine-silhouette': 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop',
   'historical-artifacts': 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=1200&auto=format&fit=crop',
-  'noble-quran': 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?q=80&w=1200&auto=format&fit=crop',
+  'noble-quran': 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?q=85&w=2560&auto=format&fit=crop',
   'quran-tazkeer-bookmark': 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=1200&auto=format&fit=crop',
-  'ramadan-lantern': 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=80&w=1200&auto=format&fit=crop',
-  'blue-mosque-istanbul': 'https://images.unsplash.com/photo-1574246604907-db69e30ddb97?q=80&w=1200&auto=format&fit=crop',
-  'sheikh-zayed-mosque': 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=80&w=1200&auto=format&fit=crop',
-  'mosque-arches': 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=1200&auto=format&fit=crop',
-  'mosque-minaret-sky': 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=80&w=1200&auto=format&fit=crop',
-  'islamic-pattern': 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=1200&auto=format&fit=crop',
-  'starry-night': 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=1200&auto=format&fit=crop',
-  'golden-desert': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=1200&auto=format&fit=crop',
+  'ramadan-lantern': 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=85&w=2560&auto=format&fit=crop',
+  'blue-mosque-istanbul': 'https://images.unsplash.com/photo-1574246604907-db69e30ddb97?q=85&w=2560&auto=format&fit=crop',
+  'sheikh-zayed-mosque': 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=85&w=2560&auto=format&fit=crop',
+  'mosque-arches': 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=85&w=2560&auto=format&fit=crop',
+  'mosque-minaret-sky': 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=85&w=2560&auto=format&fit=crop',
+  'islamic-pattern': 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=85&w=2560&auto=format&fit=crop',
+  'starry-night': 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=85&w=2560&auto=format&fit=crop',
+  'golden-desert': 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=85&w=2560&auto=format&fit=crop',
   'divine-sky': 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?q=80&w=1200&auto=format&fit=crop',
   'misty-nature': 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=1200&auto=format&fit=crop',
   'peaceful-ocean': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1200&auto=format&fit=crop',
@@ -61,13 +76,22 @@ const BG_IMAGE_URLS: Record<string, string> = {
 };
 
 export const SCENERY_ROTATION_LIST: VideoConfig['bgImageCategory'][] = [
+  // Prioritize 4K Makkah and Madinah in rotation
+  'makkah-kaaba-majestic',
+  'madinah-green-dome',
+  'makkah-clock-tower-night',
+  'madinah-giant-umbrellas',
+  'makkah-grand-minarets',
+  'madinah-sacred-arches',
+  'makkah-haram-golden-night',
+  'madinah-marble-courtyard',
+  'makkah-spire-skyline',
+  'madinah-minaret-sunset',
   'holy-kaaba-makkah',
-  'kaaba-kiswah-gold',
   'prophets-mosque-madinah',
   'masjid-al-aqsa-dome',
-  'makkah-grand-mosque-minarets',
-  'islamic-geometric-calligraphy',
   'noble-quran',
+  'islamic-geometric-calligraphy',
   'sheikh-zayed-mosque',
   'blue-mosque-istanbul',
   'mosque-arches',
@@ -94,6 +118,22 @@ export const SCENERY_ROTATION_LIST: VideoConfig['bgImageCategory'][] = [
 ];
 
 const imageCacheMap = new Map<string, HTMLImageElement>();
+const imageLoadListeners = new Set<() => void>();
+
+function notifyImageLoadListeners() {
+  imageLoadListeners.forEach((cb) => {
+    try {
+      cb();
+    } catch (e) {
+      console.error(e);
+    }
+  });
+}
+
+export function subscribeBackgroundImageLoad(cb: () => void) {
+  imageLoadListeners.add(cb);
+  return () => imageLoadListeners.delete(cb);
+}
 
 export function preloadAllBackgroundImages() {
   if (typeof window === 'undefined') return;
@@ -101,6 +141,12 @@ export function preloadAllBackgroundImages() {
     if (!imageCacheMap.has(category)) {
       const img = new Image();
       img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        notifyImageLoadListeners();
+      };
+      img.onerror = () => {
+        console.warn(`Failed to load background image: ${category}`);
+      };
       img.src = url;
       imageCacheMap.set(category, img);
     }
@@ -110,36 +156,71 @@ export function preloadAllBackgroundImages() {
 // Immediately trigger background image preloading for lightning-fast rendering
 preloadAllBackgroundImages();
 
-const imageLoadListeners = new Set<() => void>();
+export async function ensureBackgroundImageLoaded(category?: string): Promise<HTMLImageElement | null> {
+  const safeCat = (!category || category === 'none') ? 'makkah-kaaba-majestic' : category;
+  const url = BG_IMAGE_URLS[safeCat] || BG_IMAGE_URLS['makkah-kaaba-majestic'];
+  if (!url) return null;
 
-export function subscribeBackgroundImageLoad(cb: () => void) {
-  imageLoadListeners.add(cb);
-  return () => imageLoadListeners.delete(cb);
+  if (imageCacheMap.has(safeCat)) {
+    const existing = imageCacheMap.get(safeCat)!;
+    if (existing.complete && existing.naturalWidth > 0) return existing;
+    return new Promise((resolve) => {
+      const prevOnload = existing.onload;
+      existing.onload = (e) => {
+        if (typeof prevOnload === 'function') (prevOnload as any).call(existing, e);
+        notifyImageLoadListeners();
+        resolve(existing);
+      };
+      existing.onerror = () => {
+        const fallback = imageCacheMap.get('makkah-kaaba-majestic');
+        if (fallback && fallback.complete && fallback.naturalWidth > 0) {
+          resolve(fallback);
+        } else {
+          resolve(null);
+        }
+      };
+    });
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      imageCacheMap.set(safeCat, img);
+      notifyImageLoadListeners();
+      resolve(img);
+    };
+    img.onerror = () => {
+      const fallback = imageCacheMap.get('makkah-kaaba-majestic');
+      resolve(fallback || null);
+    };
+    img.src = url;
+    imageCacheMap.set(safeCat, img);
+  });
 }
 
 function getBackgroundImage(category: string): HTMLImageElement | null {
-  if (!category || category === 'none') return null;
-  const url = BG_IMAGE_URLS[category];
+  // Automatically fallback to 4K Makkah Holy Kaaba if none or invalid so solid black is never shown
+  const safeCat = (!category || category === 'none') ? 'makkah-kaaba-majestic' : category;
+  const url = BG_IMAGE_URLS[safeCat] || BG_IMAGE_URLS['makkah-kaaba-majestic'] || BG_IMAGE_URLS['holy-kaaba-makkah'];
   if (!url) return null;
 
-  if (imageCacheMap.has(category)) {
-    const img = imageCacheMap.get(category)!;
-    return img.complete && img.naturalWidth > 0 ? img : null;
+  if (imageCacheMap.has(safeCat)) {
+    const img = imageCacheMap.get(safeCat)!;
+    if (img.complete && img.naturalWidth > 0) return img;
+    if (!img.onload) {
+      img.onload = () => notifyImageLoadListeners();
+    }
+    return null;
   }
 
   const img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = () => {
-    imageLoadListeners.forEach((cb) => {
-      try {
-        cb();
-      } catch (e) {
-        console.error(e);
-      }
-    });
+    notifyImageLoadListeners();
   };
   img.src = url;
-  imageCacheMap.set(category, img);
+  imageCacheMap.set(safeCat, img);
   return null;
 }
 
@@ -241,9 +322,23 @@ export function drawBackground(
   animTime: number = Date.now(),
   enableMotion: boolean = true
 ) {
-  // 1. Check if background image is active and loaded
-  const hasValidBg = bgImageCategory && bgImageCategory !== 'none';
-  const bgImg = hasValidBg ? getBackgroundImage(bgImageCategory) : null;
+  // 1. Check if background image is active and loaded (always use 4K Makkah Kaaba if none or invalid)
+  const safeBgCategory = (!bgImageCategory || bgImageCategory === 'none') ? 'makkah-kaaba-majestic' : bgImageCategory;
+  let bgImg = getBackgroundImage(safeBgCategory);
+  if (!bgImg) {
+    // If the requested image is still fetching over network, fallback immediately to ready 4K Kaaba or cached scenery
+    const fallbackKaaba = imageCacheMap.get('makkah-kaaba-majestic');
+    if (fallbackKaaba && fallbackKaaba.complete && fallbackKaaba.naturalWidth > 0) {
+      bgImg = fallbackKaaba;
+    } else {
+      for (const img of imageCacheMap.values()) {
+        if (img && img.complete && img.naturalWidth > 0) {
+          bgImg = img;
+          break;
+        }
+      }
+    }
+  }
 
   if (bgImg) {
     const imgRatio = bgImg.naturalWidth / bgImg.naturalHeight;
@@ -275,11 +370,12 @@ export function drawBackground(
 
     ctx.restore();
 
-    // Draw dark vignette overlay for 100% text legibility
-    const darkAlpha = Math.max(0.25, Math.min(0.85, bgOverlayDarkness));
-    const vignette = ctx.createRadialGradient(width / 2, height / 2, width * 0.12, width / 2, height / 2, width * 0.75);
-    vignette.addColorStop(0, `rgba(5, 8, 18, ${darkAlpha * 0.75})`);
-    vignette.addColorStop(1, `rgba(2, 4, 10, ${Math.min(0.96, darkAlpha + 0.2)})`);
+    // Draw cinematic vignette overlay for 100% text legibility while preserving vibrant 4K scenery details
+    const darkAlpha = Math.max(0.18, Math.min(0.75, bgOverlayDarkness));
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, width * 0.15, width / 2, height / 2, width * 0.82);
+    vignette.addColorStop(0, `rgba(10, 16, 32, ${darkAlpha * 0.42})`);
+    vignette.addColorStop(0.65, `rgba(6, 11, 24, ${darkAlpha * 0.68})`);
+    vignette.addColorStop(1, `rgba(4, 7, 16, ${Math.min(0.88, darkAlpha * 0.95)})`);
     ctx.fillStyle = vignette;
     ctx.fillRect(0, 0, width, height);
 
@@ -438,22 +534,27 @@ export function drawBackground(
   }
 
   if (style === 'minimal-twilight') {
-    // Obsidian black
-    ctx.fillStyle = '#05070c';
+    // Elegant Deep Twilight Slate Navy (never flat black)
+    const grad = ctx.createLinearGradient(0, 0, 0, height);
+    grad.addColorStop(0, '#0e1829');
+    grad.addColorStop(0.5, '#09101c');
+    grad.addColorStop(1, '#050a12');
+    ctx.fillStyle = grad;
     ctx.fillRect(0, 0, width, height);
     return;
   }
 
-  // Default: modern-dark
+  // Default: modern-dark (Royal Midnight Navy with warm golden spiritual spotlight glow — No flat solid black)
   const grad = ctx.createLinearGradient(0, 0, 0, height);
-  grad.addColorStop(0, '#0b1329');
-  grad.addColorStop(1, '#030611');
+  grad.addColorStop(0, '#101d36');
+  grad.addColorStop(0.45, '#0b1426');
+  grad.addColorStop(1, '#060c18');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, width, height);
 
   // Subtle ambient gold radial spotlight
-  const spot = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width * 0.6);
-  spot.addColorStop(0, 'rgba(212, 175, 55, 0.07)');
+  const spot = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, width * 0.7);
+  spot.addColorStop(0, 'rgba(212, 175, 55, 0.12)');
   spot.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = spot;
   ctx.fillRect(0, 0, width, height);
@@ -696,7 +797,7 @@ export function drawAyahFrame(
   else if (isSymbolicSlot) activeStyle = 'symbolic-broll';
 
   let activeBgCategory = config.bgImageCategory;
-  if ((config.rotateBgPerAyah !== false) && config.bgImageCategory !== 'none') {
+  if (config.rotateBgPerAyah === true && config.bgImageCategory !== 'none') {
     if (isScholarSlot) {
       activeBgCategory = 'scholar-study';
     } else if (isSymbolicSlot) {
@@ -1268,7 +1369,7 @@ export function drawQuranBookPageFrame(
   showSurahHeader: boolean = true
 ) {
   let activeBgCategory = config.bgImageCategory;
-  if ((config.rotateBgPerAyah !== false) && config.bgImageCategory !== 'none') {
+  if (config.rotateBgPerAyah === true && config.bgImageCategory !== 'none') {
     const bgIndex = (activeAyah.num - 1) % SCENERY_ROTATION_LIST.length;
     activeBgCategory = SCENERY_ROTATION_LIST[bgIndex];
     const nextIndex = activeAyah.num % SCENERY_ROTATION_LIST.length;

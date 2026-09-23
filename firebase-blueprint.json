@@ -1,5 +1,23 @@
 {
   "entities": {
+    "subscribers": {
+      "title": "Subscriber",
+      "description": "Registered subscriber with unique Member ID, login password, email, and subscription plan",
+      "type": "object",
+      "properties": {
+        "memberId": { "type": "string", "description": "Unique studio member login ID (e.g. QVS-12345)" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "password": { "type": "string", "description": "Login password issued to or created by subscriber" },
+        "displayName": { "type": "string", "description": "Subscriber name" },
+        "role": { "type": "string", "description": "User role: subscriber, admin, member" },
+        "status": { "type": "string", "description": "Account status: active, pending, revoked" },
+        "subscriptionPlan": { "type": "string", "description": "Subscribed package plan name" },
+        "createdAt": { "type": "string", "description": "Account creation timestamp" },
+        "lastLoginAt": { "type": "string", "description": "Last login timestamp" },
+        "emailVerified": { "type": "boolean", "description": "Whether the email is verified" }
+      },
+      "required": ["memberId", "email", "password", "status", "role", "createdAt"]
+    },
     "users": {
       "description": "User profile with role and subscription status",
       "fields": {

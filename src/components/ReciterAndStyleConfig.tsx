@@ -25,8 +25,8 @@ const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: str
   {
     id: 'modern-dark',
     name: 'Modern Dark',
-    desc: 'Deep navy background with gold spotlight glow & typography',
-    previewBg: 'bg-gradient-to-b from-slate-900 to-black border-amber-500/40'
+    desc: 'Deep royal navy background with gold spotlight glow & typography',
+    previewBg: 'bg-gradient-to-b from-slate-900 to-slate-950 border-amber-500/40'
   },
   {
     id: 'classic-mushaf',
@@ -48,9 +48,9 @@ const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: str
   },
   {
     id: 'minimal-twilight',
-    name: 'Minimal Obsidian',
-    desc: 'Ultra-clean dark obsidian canvas with high-contrast warm white text',
-    previewBg: 'bg-slate-950 border-slate-700'
+    name: 'Midnight Twilight',
+    desc: 'Deep twilight indigo-navy canvas with high-contrast warm white text',
+    previewBg: 'bg-[#0a1220] border-slate-750'
   },
   {
     id: 'quran-page',
@@ -61,191 +61,226 @@ const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: str
 ];
 
 const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; previewUrl: string }[] = [
+  // 4K Makkah Al-Mukarramah
   {
-    id: 'holy-kaaba-makkah',
+    id: 'makkah-kaaba-majestic',
     name: '🕋 Holy Kaaba (Makkah Al-Mukarramah 4K)',
     desc: 'Majestic 4K view of the Holy Kaaba with golden embroidered Kiswah in Makkah (100% human-free)',
-    previewUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=400&auto=format&fit=crop'
   },
   {
-    id: 'kaaba-kiswah-gold',
-    name: '✨ Kaaba Sacred Kiswah Gold Embroidery (4K)',
-    desc: 'Pure golden embroidered Quranic calligraphy of the Holy Kaaba Kiswah (Close-up 4K)',
-    previewUrl: 'https://images.unsplash.com/photo-1590076215667-875d4ef2d7ee?q=80&w=300&auto=format&fit=crop'
+    id: 'makkah-clock-tower-night',
+    name: '🕋 Makkah Royal Clock Tower (4K Night)',
+    desc: 'Iconic illuminated Makkah Clock Tower and sacred Haram spires under night sky',
+    previewUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop'
   },
   {
-    id: 'prophets-mosque-madinah',
-    name: '🕌 Prophet\'s Mosque — Masjid an-Nabawi (Madinah 4K)',
-    desc: 'The iconic Green Dome and illuminated Madinah canopies under twilight sky (pure architecture)',
-    previewUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=80&w=300&auto=format&fit=crop'
+    id: 'makkah-grand-minarets',
+    name: '🕋 Makkah Grand Mosque Minarets (4K Illumination)',
+    desc: 'Towering marble minarets and Grand Mosque architecture under night illumination',
+    previewUrl: 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=80&w=400&auto=format&fit=crop'
   },
+  {
+    id: 'makkah-haram-golden-night',
+    name: '🕋 Masjid al-Haram Golden Glow (4K Panorama)',
+    desc: 'Sacred architectural sanctuary illuminated with radiant golden ambient light at night',
+    previewUrl: 'https://images.unsplash.com/photo-1519817650390-64a93db51149?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'makkah-spire-skyline',
+    name: '🕋 Makkah Sacred Horizon & Crescent Spire (4K)',
+    desc: 'Grand Mosque architecture and illuminated crescent spire overlooking the holy city',
+    previewUrl: 'https://images.unsplash.com/photo-1585036156171-384164a8c675?q=80&w=400&auto=format&fit=crop'
+  },
+
+  // 4K Madinah Al-Munawwarah
+  {
+    id: 'madinah-green-dome',
+    name: '🕌 Prophet\'s Mosque Green Dome (Madinah 4K)',
+    desc: 'The iconic Green Dome (Gumbad-e-Khizra) and illuminated minarets under twilight sky',
+    previewUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'madinah-giant-umbrellas',
+    name: '🕌 Madinah Giant Shading Umbrellas at Dusk (4K)',
+    desc: 'The majestic folding architectural umbrellas of Masjid an-Nabawi glowing at dusk',
+    previewUrl: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'madinah-sacred-arches',
+    name: '🕌 Prophet\'s Mosque Sacred Colonnades (4K)',
+    desc: 'Intricate vaulted Islamic arches, golden capitals and marble corridors of Masjid an-Nabawi',
+    previewUrl: 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'madinah-minaret-sunset',
+    name: '🕌 Madinah Minaret Silhouette at Sunset (4K)',
+    desc: 'Golden sunset sky framing the peaceful minaret of the Prophet\'s Mosque in Madinah',
+    previewUrl: 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'madinah-marble-courtyard',
+    name: '🕌 Prophet\'s Mosque Pristine Marble Courtyard (4K)',
+    desc: 'Pristine white marble colonnades and reflecting architectural pools in Madinah',
+    previewUrl: 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=80&w=400&auto=format&fit=crop'
+  },
+
+  // Other Islamic Sacred Heritage & Nature
   {
     id: 'masjid-al-aqsa-dome',
     name: '🕌 Masjid Al-Aqsa / Dome of the Rock (4K)',
     desc: 'Radiant golden dome and Ottoman blue geometric ceramic tiles at sunset (100% human-free)',
-    previewUrl: 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=80&w=300&auto=format&fit=crop'
-  },
-  {
-    id: 'makkah-grand-mosque-minarets',
-    name: '🕋 Makkah Grand Mosque & Holy Spire (4K)',
-    desc: 'Towering marble minarets and Grand Mosque architecture under night illumination',
-    previewUrl: 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1565552645632-d725f8bfc19a?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'islamic-geometric-calligraphy',
     name: '📜 Sacred Arabesque & Gilded Calligraphy (4K)',
     desc: 'Intricate gold-leaf Islamic illumination and historic geometric patterns',
-    previewUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'noble-quran',
+    name: '📖 Noble Quran on Wooden Rahl (4K)',
+    desc: 'Holy Quran manuscript open on carved wooden stand with warm spiritual light',
+    previewUrl: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'ramadan-lantern',
+    name: '🌙 Ramadan Lantern (Fanous 4K)',
+    desc: 'Glowing golden Ramadan lantern with warm spiritual light',
+    previewUrl: 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=80&w=400&auto=format&fit=crop'
+  },
+  {
+    id: 'blue-mosque-istanbul',
+    name: '🕌 Sultanahmet Mosque Minarets (4K)',
+    desc: 'Iconic minarets & dome silhouette against golden sunset sky',
+    previewUrl: 'https://images.unsplash.com/photo-1574246604907-db69e30ddb97?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'scholar-study',
     name: '📚 Scholar Archival Study & Bookshelves',
     desc: 'Warm mahogany archival library with books in background & Rembrandt directional lighting (100% human-free)',
-    previewUrl: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'symbolic-twilight-desert',
-    name: '🏜️ Symbolic Twilight Desert Dunes',
+    name: '🏜️ Symbolic Twilight Desert Dunes (4K)',
     desc: 'Pure silent cinematic sand dunes in soft sunset twilight lighting (empty landscape, no people)',
-    previewUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'symbolic-ancient-marketplace',
     name: '🏛️ Ancient Islamic Architecture & Arches',
     desc: 'Historical oriental arches and heritage architecture at twilight (pure architectural scenery)',
-    previewUrl: 'https://images.unsplash.com/photo-1548013146-72479768bada?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1548013146-72479768bada?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'symbolic-divine-light',
     name: '✨ Divine Radiant Golden Light (Aniconic Aura)',
     desc: 'Soft golden glowing light representing unseen divine elements with strict Islamic aniconism (zero humans)',
-    previewUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'historical-artifacts',
     name: '📜 Historical Artifacts & Parchment',
     desc: 'Ancient manuscript parchment and historical artifacts in warm amber light (pure objects)',
-    previewUrl: 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=300&auto=format&fit=crop'
-  },
-  {
-    id: 'noble-quran',
-    name: '📖 Noble Quran on Wooden Rahl',
-    desc: 'Holy Quran manuscript open on carved wooden stand with warm light',
-    previewUrl: 'https://images.unsplash.com/photo-1609599006353-e629aaabfeae?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'quran-tazkeer-bookmark',
     name: '📖 Open Quran & Ribbon Bookmark',
     desc: 'Beautiful open Holy Quran with gold rosette page marker',
-    previewUrl: 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=300&auto=format&fit=crop'
-  },
-  {
-    id: 'ramadan-lantern',
-    name: '🌙 Ramadan Lantern (Fanous)',
-    desc: 'Glowing golden Ramadan lantern with warm spiritual light',
-    previewUrl: 'https://images.unsplash.com/photo-1587974928442-77dc3e0dba72?q=80&w=300&auto=format&fit=crop'
-  },
-  {
-    id: 'blue-mosque-istanbul',
-    name: '🕌 Sultanahmet Blue Mosque',
-    desc: 'Iconic minarets & dome silhouette against golden sunset sky',
-    previewUrl: 'https://images.unsplash.com/photo-1574246604907-db69e30ddb97?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1584286595398-a59f21d313f5?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'sheikh-zayed-mosque',
-    name: '🕌 Sheikh Zayed Grand Mosque',
+    name: '🕌 Sheikh Zayed Grand Mosque (4K)',
     desc: 'Pristine white marble arches & reflective water pools',
-    previewUrl: 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'mosque-arches',
-    name: '✨ Illuminated Mosque Arches',
+    name: '✨ Illuminated Mosque Arches (4K)',
     desc: 'Intricate golden Islamic arches and vaulted hallways',
-    previewUrl: 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'mosque-minaret-sky',
-    name: '🕌 Minaret Silhouette at Sunset',
+    name: '🕌 Minaret Silhouette at Sunset (4K)',
     desc: 'Golden sunset sky framing a peaceful mosque minaret',
-    previewUrl: 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'islamic-pattern',
-    name: '✨ Islamic Arabesque Mosaic',
+    name: '✨ Islamic Arabesque Mosaic (4K)',
     desc: 'Intricate arabesque mosaics, golden star lattice & arched architecture',
-    previewUrl: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1584551246679-0daf3d275d0f?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'starry-night',
-    name: '🌌 Starry Cosmic Sky',
-    desc: 'Deep dark night sky filled with glowing stars & stardust',
-    previewUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=300&auto=format&fit=crop'
+    name: '🌌 Starry Cosmic Sky (4K)',
+    desc: 'Deep cosmic night sky dotted with millions of radiant stars',
+    previewUrl: 'https://images.unsplash.com/photo-1506703719100-a0f3a48c0f86?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'golden-desert',
-    name: '🏜️ Golden Desert Sunset',
-    desc: 'Majestic rolling sand dunes under warm sunset light rays',
-    previewUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=300&auto=format&fit=crop'
+    name: '🏜️ Golden Desert Dunes (4K)',
+    desc: 'Majestic rolling dunes under golden hour desert sunshine',
+    previewUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'divine-sky',
-    name: '🌤️ Divine Sun Rays & Sky',
-    desc: 'Peaceful sky with golden sunbeams breaking through soft clouds',
-    previewUrl: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?q=80&w=300&auto=format&fit=crop'
+    name: '☁️ Divine Golden Clouds',
+    desc: 'Soft ethereal clouds illuminated by heavenly golden sunbeams',
+    previewUrl: 'https://images.unsplash.com/photo-1513002749550-c59d786b8e6c?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'misty-nature',
-    name: '🌲 Misty Forest Canopy',
-    desc: 'Serene emerald pine forest trees & peaceful misty mountains',
-    previewUrl: 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=300&auto=format&fit=crop'
+    name: '🌲 Silent Misty Forest',
+    desc: 'Serene evergreen trees veiled in gentle morning mountain mist',
+    previewUrl: 'https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'peaceful-ocean',
-    name: '🌊 Peaceful Ocean Waves',
-    desc: 'Calm turquoise sea horizon & soothing ocean water',
-    previewUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=300&auto=format&fit=crop'
+    name: '🌊 Peaceful Ocean Shore',
+    desc: 'Gentle tranquil waves rolling onto peaceful coastline at dawn',
+    previewUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'glowing-waterfall',
-    name: '🏞️ Mountain Waterfall & River',
-    desc: 'Cascading forest waterfall and crystalline natural stream',
-    previewUrl: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=300&auto=format&fit=crop'
+    name: '💧 Pristine Forest Cascades',
+    desc: 'Crystal clear rushing water through mossy rocks and lush greenery',
+    previewUrl: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'blooming-garden',
-    name: '🌿 Lush Forest Greenery',
-    desc: 'Fresh green leaves and soft dappled forest sunlight',
-    previewUrl: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=300&auto=format&fit=crop'
+    name: '🌸 Sacred Spring Blossoms',
+    desc: 'Delicate floral branches in soft ambient spring sunshine',
+    previewUrl: 'https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'cosmic-nebula',
     name: '✨ Deep Space Nebula',
     desc: 'Stunning celestial gas nebula & distant galaxy light',
-    previewUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'snowy-mountains',
     name: '🏔️ Majestic Snowy Peaks',
     desc: 'Alpine snow-capped mountain peaks bathed in soft sunrise',
-    previewUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'emerald-valley',
     name: '⛰️ Emerald Mountain Lake',
     desc: 'Crystalline mountain mirror lake reflecting green valleys',
-    previewUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=300&auto=format&fit=crop'
+    previewUrl: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'aurora-borealis',
     name: '🌌 Northern Aurora Sky',
     desc: 'Dancing green celestial aurora lights over quiet night landscape',
-    previewUrl: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?q=80&w=300&auto=format&fit=crop'
-  },
-  {
-    id: 'none',
-    name: '🎨 Solid Color Theme (No Photo)',
-    desc: 'Clean color theme without background photography',
-    previewUrl: ''
+    previewUrl: 'https://images.unsplash.com/photo-1531366936337-7c912a4589a7?q=80&w=400&auto=format&fit=crop'
   }
 ];
 
@@ -259,6 +294,7 @@ const TEXT_ANIMATIONS: { id: TextAnimation; name: string; desc: string }[] = [
 export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange }) => {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isPlayingQuickSample, setIsPlayingQuickSample] = useState(false);
+  const [bgTab, setBgTab] = useState<'all' | 'makkah' | 'madinah' | 'heritage' | 'nature'>('all');
   const quickAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const currentReciter = RECITERS.find((r) => r.folder === config.reciterFolder) || RECITERS[0];
@@ -1016,12 +1052,74 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
           </span>
         </div>
 
+        {/* Category Tabs: Makkah 4K, Madinah 4K, Islamic Heritage, Nature */}
+        <div className="flex flex-wrap items-center gap-1.5 pb-1">
+          {[
+            { id: 'all', label: '🌟 All Sceneries' },
+            { id: 'makkah', label: '🕋 Makkah Al-Mukarramah 4K' },
+            { id: 'madinah', label: '🕌 Madinah Al-Munawwarah 4K' },
+            { id: 'heritage', label: '📜 Islamic Heritage' },
+            { id: 'nature', label: '🌿 Natural Landscapes' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setBgTab(tab.id as any)}
+              className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                bgTab === tab.id
+                  ? 'bg-amber-400 text-slate-950 shadow-sm shadow-amber-400/30'
+                  : 'bg-slate-800 text-slate-300 hover:bg-slate-750 hover:text-white border border-slate-700/50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {BG_IMAGE_CATEGORIES.map((bgCat) => (
+          {BG_IMAGE_CATEGORIES.filter((bgCat) => {
+            if (bgTab === 'makkah') return bgCat.id.startsWith('makkah') || bgCat.id.includes('kaaba');
+            if (bgTab === 'madinah') return bgCat.id.startsWith('madinah') || bgCat.id.includes('prophet');
+            if (bgTab === 'heritage') {
+              return [
+                'masjid-al-aqsa-dome',
+                'islamic-geometric-calligraphy',
+                'noble-quran',
+                'ramadan-lantern',
+                'blue-mosque-istanbul',
+                'sheikh-zayed-mosque',
+                'mosque-arches',
+                'mosque-minaret-sky',
+                'islamic-pattern',
+                'scholar-study',
+                'symbolic-ancient-marketplace',
+                'historical-artifacts',
+                'quran-tazkeer-bookmark'
+              ].includes(bgCat.id);
+            }
+            if (bgTab === 'nature') {
+              return [
+                'symbolic-twilight-desert',
+                'symbolic-divine-light',
+                'starry-night',
+                'golden-desert',
+                'divine-sky',
+                'misty-nature',
+                'peaceful-ocean',
+                'glowing-waterfall',
+                'blooming-garden',
+                'cosmic-nebula',
+                'snowy-mountains',
+                'emerald-valley',
+                'aurora-borealis'
+              ].includes(bgCat.id);
+            }
+            return true;
+          }).map((bgCat) => (
             <button
               key={bgCat.id}
               type="button"
-              onClick={() => onChange({ bgImageCategory: bgCat.id })}
+              onClick={() => onChange({ bgImageCategory: bgCat.id, rotateBgPerAyah: false })}
               className={`p-3 rounded-xl border text-left transition-all relative overflow-hidden flex flex-col justify-between ${
                 config.bgImageCategory === bgCat.id
                   ? 'border-amber-500 bg-amber-500/10 ring-2 ring-amber-500/30'

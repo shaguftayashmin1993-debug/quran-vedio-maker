@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Film, CheckCircle2, Download, FileText, Loader2, Play, Minimize2, Maximize2, Music, Home, FileVideo, Sparkles, Compass, ChevronRight, Square, Clock, ShieldCheck, ArrowLeft, LogOut } from 'lucide-react';
 import { Surah, VideoConfig, SavedVideo, Ayah } from '../types';
-import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages } from '../utils/canvasRenderer';
+import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages, ensureBackgroundImageLoaded } from '../utils/canvasRenderer';
 import { generateSrtSubtitles, generateVttSubtitles, downloadTextFile, SubtitleCue } from '../utils/subtitleGenerator';
 import { fetchAudioBuffer, stripBismillahFromAyah1, audioBuffersToCombinedBlob, concatenateAudioBuffersWithOffsets, createSilentBuffer } from '../utils/audioUtils';
 import { getAyahTranslationText, getSpokenTranslationTextAndLang } from '../utils/translationUtils';
@@ -256,6 +256,9 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
 
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
+
+      // Ensure 4K Holy Scenery is completely loaded into memory before first frame capture
+      await ensureBackgroundImageLoaded(config.bgImageCategory);
 
       // Pre-draw initial frame so captureStream gets valid content immediately
       const isSingleVerse = ayahsInRange.length === 1;
@@ -828,7 +831,7 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
     silenceAllBackgroundAudio();
     const source = generatedAudioUrl;
     if (!source) return;
-    await triggerSafeDownload(source, `Surah_${surah.number}_${surah.englishName}_Recitation.wav`);
+    await triggerSafeDownload(source, `Surah_${surah.number}_${surah.englishName}_Recitation.mp3`);
   };
 
   const handleDownloadSrt = () => {

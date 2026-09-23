@@ -1,5 +1,5 @@
 import { Surah, VideoConfig, Ayah } from '../types';
-import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages } from './canvasRenderer';
+import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages, ensureBackgroundImageLoaded } from './canvasRenderer';
 import { generateSrtSubtitles, generateVttSubtitles, SubtitleCue } from './subtitleGenerator';
 import { fetchAudioBuffer, stripBismillahFromAyah1, audioBuffersToCombinedBlob, concatenateAudioBuffersWithOffsets, createSilentBuffer } from './audioUtils';
 import { getAyahTranslationText, getSpokenTranslationTextAndLang } from './translationUtils';
@@ -423,6 +423,9 @@ export async function renderVideoSegment(
     const totalDuration = masterAudioBuffer.duration;
     const combinedAudioBlob = audioBuffersToCombinedBlob([masterAudioBuffer], audioCtx.sampleRate || 44100);
     const audioBlobUrl = URL.createObjectURL(combinedAudioBlob);
+
+    // Preload background scenery so frame 0 renders with 4K photo
+    await ensureBackgroundImageLoaded(config.bgImageCategory);
 
     // Initial frame draw
     if (needsTitleCard) {

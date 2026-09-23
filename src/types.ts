@@ -78,11 +78,24 @@ export type TextSize = 'compact' | 'normal' | 'large' | 'extra-large' | 'huge';
 
 export type BgImageCategory =
   | 'none'
+  // 4K Makkah Al-Mukarramah
+  | 'makkah-kaaba-majestic'
+  | 'makkah-clock-tower-night'
+  | 'makkah-grand-minarets'
+  | 'makkah-haram-golden-night'
+  | 'makkah-spire-skyline'
   | 'holy-kaaba-makkah'
   | 'kaaba-kiswah-gold'
-  | 'prophets-mosque-madinah'
-  | 'masjid-al-aqsa-dome'
   | 'makkah-grand-mosque-minarets'
+  // 4K Madinah Al-Munawwarah
+  | 'madinah-green-dome'
+  | 'madinah-giant-umbrellas'
+  | 'madinah-sacred-arches'
+  | 'madinah-minaret-sunset'
+  | 'madinah-marble-courtyard'
+  | 'prophets-mosque-madinah'
+  // Sacred Islamic Heritage & Nature
+  | 'masjid-al-aqsa-dome'
   | 'islamic-geometric-calligraphy'
   | 'scholar-study'
   | 'symbolic-twilight-desert'
@@ -212,6 +225,22 @@ export interface AllowedUser {
   notes?: string;
   addedBy: string;
   addedAt: string;
+}
+
+export interface SubscriberRecord {
+  id: string;
+  memberId: string;
+  email: string;
+  password?: string;
+  displayName: string;
+  role: UserRole;
+  status: 'active' | 'pending' | 'revoked';
+  subscriptionPlan: string;
+  createdAt: string;
+  lastLoginAt?: string;
+  emailVerified?: boolean;
+  notes?: string;
+  issuedBy?: string;
 }
 
 export interface AccessRequest {

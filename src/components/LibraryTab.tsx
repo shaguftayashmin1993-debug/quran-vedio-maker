@@ -109,7 +109,7 @@ export const LibraryTab: React.FC<LibraryProps> = ({ savedVideos, onDeleteVideo,
   const handleDownloadMp3 = async (video: SavedVideo) => {
     silenceAllBackgroundAudio();
     setIsPreparingDownload(`${video.id}-mp3`);
-    const filename = `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}_Recitation.wav`;
+    const filename = `${video.title.replace(/[^a-zA-Z0-9]/g, '_')}_Recitation.mp3`;
 
     try {
       const stored = await getVideoBlobFromDB(video.id);

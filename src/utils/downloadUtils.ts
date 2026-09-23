@@ -4,11 +4,18 @@
  * and fallback user activation download prompts.
  */
 
-import { isGenuineMp4Blob, transcodeToUniversalMp4 } from './universalMp4Transcoder';
+import { 
+  isGenuineMp4Blob, 
+  isGenuineMp3Blob, 
+  isGenuineWavBlob, 
+  transcodeToUniversalMp4, 
+  transcodeToUniversalMp3 
+} from './universalMp4Transcoder';
 
 export interface DownloadOptions {
   mimeType?: string;
   fallbackToNewTab?: boolean;
+  onStatus?: (status: string) => void;
   onSuccess?: () => void;
   onError?: (err: Error) => void;
 }
@@ -16,7 +23,8 @@ export interface DownloadOptions {
 /**
  * Triggers a robust browser download for a Blob or Object URL.
  * Automatically guarantees universal MP4 format (H.264 + AAC) if .mp4 is requested,
- * avoiding "file not supported" errors in Windows Media Player & QuickTime.
+ * and universal MP3 format (192kbps ID3v2) if .mp3 is requested,
+ * completely avoiding "file not supported" or "unsupported codec" errors.
  */
 export async function triggerSafeDownload(
   source: Blob | string,
@@ -34,7 +42,7 @@ export async function triggerSafeDownload(
       isCreatedUrl = true;
     } else if (typeof source === 'string') {
       url = source;
-      // If it's a blob: URL, check if it's still alive or needs fetching
+      // If it's a blob: URL, fetch the blob to inspect and ensure genuine format
       if (url.startsWith('blob:')) {
         try {
           const res = await fetch(url);
@@ -42,7 +50,7 @@ export async function triggerSafeDownload(
             actualBlob = await res.blob();
           }
         } catch {
-          // If fetch fails, blob URL might still work for <a> tag
+          // If fetch fails, blob URL might still be used directly
         }
       }
     }
@@ -51,19 +59,28 @@ export async function triggerSafeDownload(
       throw new Error('Download URL or Blob is not available.');
     }
 
-    // If caller requested an .mp4 file, verify and enforce universal MP4 standard
-    if (suggestedFilename.toLowerCase().endsWith('.mp4') && actualBlob) {
+    const lowerName = suggestedFilename.toLowerCase();
+
+    // 1. VIDEO: If caller requested an .mp4 file, verify and enforce universal MP4 standard
+    if (lowerName.endsWith('.mp4') && actualBlob) {
       const isRealMp4 = await isGenuineMp4Blob(actualBlob);
       if (!isRealMp4) {
+        if (options.onStatus) options.onStatus('Mastering universal MP4 for native media players...');
         try {
-          const transcoded = await transcodeToUniversalMp4(actualBlob, { filename: suggestedFilename });
+          const transcoded = await transcodeToUniversalMp4(actualBlob, { 
+            filename: suggestedFilename,
+            onStatus: options.onStatus 
+          });
           if (transcoded && transcoded.size > 1000) {
-            if (isCreatedUrl) {
-              try { URL.revokeObjectURL(url); } catch {}
+            const isConfirmedMp4 = await isGenuineMp4Blob(transcoded);
+            if (isConfirmedMp4) {
+              if (isCreatedUrl) {
+                try { URL.revokeObjectURL(url); } catch {}
+              }
+              actualBlob = transcoded;
+              url = URL.createObjectURL(transcoded);
+              isCreatedUrl = true;
             }
-            actualBlob = transcoded;
-            url = URL.createObjectURL(transcoded);
-            isCreatedUrl = true;
           }
         } catch (transcodeErr) {
           console.warn('Auto-transcode before download failed:', transcodeErr);
@@ -71,18 +88,60 @@ export async function triggerSafeDownload(
       }
     }
 
-    // Determine correct filename extension based on actual blob type
+    // 2. AUDIO: If caller requested an .mp3 file, verify and enforce genuine MP3 standard
+    if (lowerName.endsWith('.mp3') && actualBlob) {
+      const isRealMp3 = await isGenuineMp3Blob(actualBlob);
+      if (!isRealMp3) {
+        if (options.onStatus) options.onStatus('Converting audio to universal MP3...');
+        try {
+          const mp3Converted = await transcodeToUniversalMp3(actualBlob, {
+            filename: suggestedFilename,
+            onStatus: options.onStatus
+          });
+          if (mp3Converted && mp3Converted.size > 500) {
+            const isConfirmedMp3 = await isGenuineMp3Blob(mp3Converted);
+            if (isConfirmedMp3) {
+              if (isCreatedUrl) {
+                try { URL.revokeObjectURL(url); } catch {}
+              }
+              actualBlob = mp3Converted;
+              url = URL.createObjectURL(mp3Converted);
+              isCreatedUrl = true;
+            }
+          }
+        } catch (audioErr) {
+          console.warn('Audio transcode to MP3 failed:', audioErr);
+        }
+      }
+    }
+
+    // 3. Determine strictly accurate extension to prevent container mismatches
     let finalFilename = suggestedFilename;
-    if (actualBlob && actualBlob.type) {
-      const type = actualBlob.type.toLowerCase();
-      if (type.includes('webm') && !finalFilename.endsWith('.webm') && !finalFilename.endsWith('.mp4')) {
-        finalFilename += '.webm';
-      } else if (type.includes('mp4') && !finalFilename.endsWith('.mp4')) {
-        finalFilename += '.mp4';
-      } else if (type.includes('wav') && !finalFilename.endsWith('.wav')) {
-        finalFilename += '.wav';
-      } else if (type.includes('mp3') && !finalFilename.endsWith('.mp3')) {
-        finalFilename += '.mp3';
+    if (actualBlob) {
+      const isMp4 = await isGenuineMp4Blob(actualBlob);
+      const isMp3 = await isGenuineMp3Blob(actualBlob);
+      const isWav = await isGenuineWavBlob(actualBlob);
+      const rawType = (actualBlob.type || '').toLowerCase();
+
+      if (isMp4) {
+        if (!finalFilename.toLowerCase().endsWith('.mp4')) {
+          finalFilename = finalFilename.replace(/\.[^/.]+$/, '') + '.mp4';
+        }
+      } else if (isMp3) {
+        if (!finalFilename.toLowerCase().endsWith('.mp3')) {
+          finalFilename = finalFilename.replace(/\.[^/.]+$/, '') + '.mp3';
+        }
+      } else if (isWav) {
+        if (!finalFilename.toLowerCase().endsWith('.wav')) {
+          finalFilename = finalFilename.replace(/\.[^/.]+$/, '') + '.wav';
+        }
+      } else if (rawType.includes('webm')) {
+        // Under no circumstances name a raw WebM file as .mp4, as players will report "unsupported file"
+        if (finalFilename.toLowerCase().endsWith('.mp4')) {
+          finalFilename = finalFilename.replace(/\.mp4$/i, '.webm');
+        } else if (!finalFilename.toLowerCase().endsWith('.webm')) {
+          finalFilename += '.webm';
+        }
       }
     }
 
@@ -117,8 +176,7 @@ export async function triggerSafeDownload(
         // Ignore cleanup errors
       }
 
-      // Do NOT revoke immediately! For large video files (like 100MB+ Surah Al-Baqarah),
-      // revoking the URL too quickly terminates the download before it finishes writing to disk!
+      // Buffer revokeObjectURL so large downloads don't get truncated
       if (isCreatedUrl) {
         setTimeout(() => {
           try {
@@ -136,7 +194,6 @@ export async function triggerSafeDownload(
     console.error('Safe download execution failed:', err);
     if (options.onError) options.onError(err);
 
-    // Fallback: If programmatic click failed, try window.open if it's a valid URL
     if (typeof source === 'string' && source.startsWith('http')) {
       try {
         window.open(source, '_blank');

@@ -16,6 +16,11 @@ service cloud.firestore {
       }
     }
 
+    // Subscribers database collection storing registered subscriber records with Member ID and credentials
+    match /subscribers/{subscriberId} {
+      allow read, write: if true;
+    }
+
     // Allowed users whitelist (members and subscribers)
     match /allowed_users/{docId} {
       allow read, write: if true;
