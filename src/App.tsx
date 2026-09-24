@@ -20,7 +20,7 @@ import { syncSavedVideoToCloud, deleteSavedVideoFromCloud } from './utils/cloudS
 import { getSurahDetails } from './utils/quranDataService';
 
 function StudioApp() {
-  const { user, loading, isAuthorized, isAdmin } = useAuth();
+  const { user, loading, isAuthorized, isOwner } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'studio' | 'audio' | 'library'>('studio');
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
@@ -416,8 +416,8 @@ function StudioApp() {
         )}
       </main>
 
-      {/* Admin Access & Subscriber Modal */}
-      {isAdmin && (
+      {/* Admin Access & Subscriber Modal (Strictly Owner Only) */}
+      {isOwner && (
         <AdminAccessModal
           isOpen={isAdminModalOpen}
           onClose={() => setIsAdminModalOpen(false)}

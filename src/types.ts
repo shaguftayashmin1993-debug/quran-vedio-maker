@@ -243,6 +243,31 @@ export interface SubscriberRecord {
   issuedBy?: string;
 }
 
+export interface UpiConfig {
+  upiId: string;
+  payeeName: string;
+  monthlyPriceInr: number;
+  annualPriceInr: number;
+  lifetimePriceInr: number;
+  autoApproveOnSubmit?: boolean;
+}
+
+export interface UpiPaymentRecord {
+  id: string;
+  email: string;
+  name?: string;
+  utrNumber: string;
+  planId: 'monthly' | 'annual' | 'lifetime';
+  planName: string;
+  amountInr: number;
+  memberId?: string;
+  password?: string;
+  status: 'active' | 'pending' | 'rejected';
+  createdAt: string;
+  verifiedAt?: string;
+  notes?: string;
+}
+
 export interface AccessRequest {
   id: string;
   email: string;

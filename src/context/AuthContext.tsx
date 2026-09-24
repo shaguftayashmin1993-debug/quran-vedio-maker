@@ -31,7 +31,10 @@ import {
   SubscriberRecord,
   UserRole,
   AccessStatus,
+  UpiConfig,
+  UpiPaymentRecord,
 } from '../types';
+import { DEFAULT_UPI_CONFIG } from '../utils/upiUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -48,6 +51,19 @@ interface AuthContextType {
   accessCodes: AccessCode[];
   allRegisteredUsers: UserProfile[];
   subscribersList: SubscriberRecord[];
+  upiConfig: UpiConfig;
+  upiTransactions: UpiPaymentRecord[];
+  updateUpiConfig: (newConfig: Partial<UpiConfig>) => Promise<void>;
+  submitUpiPayment: (data: {
+    email: string;
+    name?: string;
+    utrNumber: string;
+    planId: 'monthly' | 'annual' | 'lifetime';
+    planName: string;
+    amountInr: number;
+  }) => Promise<{ success: boolean; memberId: string; password: string; message: string; record: SubscriberRecord }>;
+  verifyUpiPayment: (txId: string, status: 'active' | 'rejected') => Promise<void>;
+  deleteUpiPayment: (txId: string) => Promise<void>;
   loginAsOwner: () => Promise<void>;
   quickEmailLogin: (email: string, name?: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -84,6 +100,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [accessCodes, setAccessCodes] = useState<AccessCode[]>([]);
   const [allRegisteredUsers, setAllRegisteredUsers] = useState<UserProfile[]>([]);
   const [subscribersList, setSubscribersList] = useState<SubscriberRecord[]>([]);
+  const [upiTransactions, setUpiTransactions] = useState<UpiPaymentRecord[]>([]);
+  const [upiConfig, setUpiConfig] = useState<UpiConfig>(() => {
+    try {
+      const local = localStorage.getItem('quran_studio_upi_config');
+      return local ? JSON.parse(local) : DEFAULT_UPI_CONFIG;
+    } catch {
+      return DEFAULT_UPI_CONFIG;
+    }
+  });
+
+  // Load latest UPI config from Firestore
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'upi_config')).then((snap) => {
+      if (snap.exists()) {
+        const conf = snap.data() as UpiConfig;
+        setUpiConfig((prev) => ({ ...prev, ...conf }));
+        localStorage.setItem('quran_studio_upi_config', JSON.stringify(conf));
+      }
+    }).catch(() => {});
+  }, []);
 
   // Computed Roles & Permissions
   const userEmail = user?.email?.toLowerCase().trim() || profile?.email?.toLowerCase().trim() || '';
@@ -343,12 +379,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn('Subscribers database snapshot listener:', err);
     });
 
+    // 6. UPI Payments & Verification Records
+    const qUpi = query(collection(db, 'upi_transactions'), orderBy('createdAt', 'desc'));
+    const unsubUpi = onSnapshot(qUpi, (snap) => {
+      const list: UpiPaymentRecord[] = [];
+      snap.forEach((docSnap) => {
+        list.push({ id: docSnap.id, ...(docSnap.data() as Omit<UpiPaymentRecord, 'id'>) });
+      });
+      setUpiTransactions(list);
+    }, (err) => {
+      console.warn('UPI transactions snapshot listener:', err);
+    });
+
     return () => {
       unsubAllowedList();
       unsubRequests();
       unsubCodes();
       unsubUsers();
       unsubSubscribers();
+      unsubUpi();
     };
   }, [user, isAdmin]);
 
@@ -1024,6 +1073,162 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await deleteDoc(doc(db, 'allowed_users', cleanEmail)).catch(() => {});
   };
 
+  // 5. UPI Payments Processing
+  const submitUpiPayment = async (data: {
+    email: string;
+    name?: string;
+    utrNumber: string;
+    planId: 'monthly' | 'annual' | 'lifetime';
+    planName: string;
+    amountInr: number;
+  }): Promise<{ success: boolean; memberId: string; password: string; message: string; record: SubscriberRecord }> => {
+    setLoading(true);
+    try {
+      const cleanEmail = data.email.trim().toLowerCase();
+      const cleanUtr = data.utrNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+      // Validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(cleanEmail)) {
+        throw new Error('Please enter a valid email address (e.g., yourname@gmail.com).');
+      }
+
+      if (!cleanUtr || cleanUtr.length < 6) {
+        throw new Error('Please enter a valid 12-digit UPI Reference Number / UTR from your payment app receipt.');
+      }
+
+      // Check if UTR was already submitted to prevent duplicates
+      const utrSnap = await getDocs(query(collection(db, 'upi_transactions'), where('utrNumber', '==', cleanUtr)));
+      if (!utrSnap.empty) {
+        const existingTx = utrSnap.docs[0].data() as UpiPaymentRecord;
+        if (existingTx.email.toLowerCase() !== cleanEmail) {
+          throw new Error('This UPI Reference Number has already been submitted for another account. If this is an error, please contact support.');
+        }
+      }
+
+      const nowIso = new Date().toISOString();
+      const displayName = data.name?.trim() || cleanEmail.split('@')[0];
+
+      // Check if already subscribed in subscribers database to reuse memberId or create a new one
+      const subDocRef = doc(db, 'subscribers', cleanEmail);
+      const existingSub = await getDoc(subDocRef);
+      let memberId = '';
+      let assignedPassword = '';
+
+      if (existingSub.exists()) {
+        const existingData = existingSub.data() as SubscriberRecord;
+        memberId = existingData.memberId;
+        assignedPassword = existingData.password || generateSecurePassword();
+      } else {
+        memberId = generateMemberId();
+        assignedPassword = generateSecurePassword();
+      }
+
+      const record: SubscriberRecord = {
+        id: cleanEmail,
+        memberId,
+        email: cleanEmail,
+        password: assignedPassword,
+        displayName,
+        role: 'subscriber',
+        status: 'active',
+        subscriptionPlan: data.planName,
+        createdAt: nowIso,
+        lastLoginAt: nowIso,
+        emailVerified: true,
+        notes: `Paid via UPI (UTR: ${cleanUtr}, ₹${data.amountInr})`,
+        issuedBy: 'upi_checkout'
+      };
+
+      // 1. Store in Firestore subscribers
+      await setDoc(subDocRef, record, { merge: true });
+
+      // 2. Store in allowed_users
+      await setDoc(doc(db, 'allowed_users', cleanEmail), {
+        email: cleanEmail,
+        role: 'subscriber',
+        status: 'active',
+        plan: data.planName,
+        notes: `UPI UTR: ${cleanUtr}, Amount: ₹${data.amountInr}`,
+        addedBy: 'upi_system',
+        addedAt: nowIso,
+      }, { merge: true });
+
+      // 3. Store in upi_transactions collection
+      const txId = `upi_${Date.now()}_${cleanUtr.slice(-4)}`;
+      const upiRecord: UpiPaymentRecord = {
+        id: txId,
+        email: cleanEmail,
+        name: displayName,
+        utrNumber: cleanUtr,
+        planId: data.planId,
+        planName: data.planName,
+        amountInr: data.amountInr,
+        memberId,
+        password: assignedPassword,
+        status: 'active',
+        createdAt: nowIso,
+        verifiedAt: nowIso,
+        notes: 'Submitted via Studio UPI Checkout'
+      };
+      await setDoc(doc(db, 'upi_transactions', txId), upiRecord);
+
+      // 4. Create user profile and set session
+      const sessionUid = 'usr_' + btoa(cleanEmail).replace(/=/g, '');
+      const userProfile: UserProfile = {
+        uid: sessionUid,
+        email: cleanEmail,
+        displayName,
+        role: 'subscriber',
+        status: 'active',
+        subscriptionPlan: data.planName,
+        createdAt: nowIso,
+        lastLoginAt: nowIso,
+      };
+      await setDoc(doc(db, 'users', sessionUid), userProfile, { merge: true });
+
+      setUser({
+        uid: sessionUid,
+        email: cleanEmail,
+        displayName,
+        photoURL: null,
+      } as unknown as User);
+      setProfile(userProfile);
+      localStorage.setItem('quran_studio_auth_profile', JSON.stringify(userProfile));
+
+      return {
+        success: true,
+        memberId,
+        password: assignedPassword,
+        message: 'UPI payment registered successfully! Studio is now unlocked.',
+        record
+      };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUpiConfig = async (newConfig: Partial<UpiConfig>) => {
+    if (!isAdmin) throw new Error('Unauthorized');
+    const updated = { ...upiConfig, ...newConfig };
+    setUpiConfig(updated);
+    localStorage.setItem('quran_studio_upi_config', JSON.stringify(updated));
+    await setDoc(doc(db, 'settings', 'upi_config'), updated, { merge: true }).catch(() => {});
+  };
+
+  const verifyUpiPayment = async (txId: string, status: 'active' | 'rejected') => {
+    if (!isAdmin) throw new Error('Unauthorized');
+    await updateDoc(doc(db, 'upi_transactions', txId), {
+      status,
+      verifiedAt: new Date().toISOString(),
+    });
+  };
+
+  const deleteUpiPayment = async (txId: string) => {
+    if (!isAdmin) throw new Error('Unauthorized');
+    await deleteDoc(doc(db, 'upi_transactions', txId));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -1041,6 +1246,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         accessCodes,
         allRegisteredUsers,
         subscribersList,
+        upiConfig,
+        upiTransactions,
+        updateUpiConfig,
+        submitUpiPayment,
+        verifyUpiPayment,
+        deleteUpiPayment,
         loginAsOwner,
         quickEmailLogin,
         loginWithGoogle,

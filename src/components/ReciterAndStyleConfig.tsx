@@ -69,12 +69,6 @@ const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; pr
     previewUrl: 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=80&w=400&auto=format&fit=crop'
   },
   {
-    id: 'makkah-clock-tower-night',
-    name: '🕋 Makkah Royal Clock Tower (4K Night)',
-    desc: 'Iconic illuminated Makkah Clock Tower and sacred Haram spires under night sky',
-    previewUrl: 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=80&w=400&auto=format&fit=crop'
-  },
-  {
     id: 'makkah-grand-minarets',
     name: '🕋 Makkah Grand Mosque Minarets (4K Illumination)',
     desc: 'Towering marble minarets and Grand Mosque architecture under night illumination',
@@ -99,12 +93,6 @@ const BG_IMAGE_CATEGORIES: { id: BgImageCategory; name: string; desc: string; pr
     name: '🕌 Prophet\'s Mosque Green Dome (Madinah 4K)',
     desc: 'The iconic Green Dome (Gumbad-e-Khizra) and illuminated minarets under twilight sky',
     previewUrl: 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=80&w=400&auto=format&fit=crop'
-  },
-  {
-    id: 'madinah-giant-umbrellas',
-    name: '🕌 Madinah Giant Shading Umbrellas at Dusk (4K)',
-    desc: 'The majestic folding architectural umbrellas of Masjid an-Nabawi glowing at dusk',
-    previewUrl: 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=80&w=400&auto=format&fit=crop'
   },
   {
     id: 'madinah-sacred-arches',

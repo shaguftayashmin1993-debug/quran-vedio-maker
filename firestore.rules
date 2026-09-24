@@ -35,6 +35,16 @@ service cloud.firestore {
     match /access_codes/{codeId} {
       allow read, write: if true;
     }
+
+    // UPI Payments & Verification transactions
+    match /upi_transactions/{txId} {
+      allow read, write: if true;
+    }
+
+    // App & payment settings
+    match /settings/{docId} {
+      allow read, write: if true;
+    }
   }
 }
 

@@ -16,12 +16,15 @@ import {
   Copy,
   CheckCheck,
   Download,
+  QrCode,
+  Zap,
 } from 'lucide-react';
+import { UpiPaymentCard } from './UpiPaymentCard';
 
 export function AccessRestrictedScreen() {
   const { user, profile, logout, submitAccessRequest, redeemAccessCode, loginWithIdOrEmail, subscribeUser } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'subscribe' | 'memberId' | 'code' | 'request'>('subscribe');
+  const [activeTab, setActiveTab] = useState<'upi' | 'memberId' | 'code' | 'subscribe' | 'request'>('upi');
   
   // Member ID Login Form
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -189,23 +192,23 @@ export function AccessRestrictedScreen() {
 
         {/* Access Pathways Tabs */}
         <div className="pt-5 space-y-4">
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-900/90 rounded-2xl border border-slate-800">
+          <div className="grid grid-cols-4 gap-1 p-1 bg-slate-900/90 rounded-2xl border border-slate-800 text-[11px]">
             <button
               type="button"
-              onClick={() => setActiveTab('subscribe')}
-              className={`py-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
-                activeTab === 'subscribe'
-                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+              onClick={() => setActiveTab('upi')}
+              className={`py-2 px-1 font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                activeTab === 'upi'
+                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 shadow-md font-black'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>Subscribe</span>
+              <Zap className="w-3.5 h-3.5 text-amber-950" />
+              <span>UPI Pay</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('memberId')}
-              className={`py-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+              className={`py-2 px-1 font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
                 activeTab === 'memberId'
                   ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                   : 'text-slate-400 hover:text-slate-200'
@@ -217,7 +220,7 @@ export function AccessRestrictedScreen() {
             <button
               type="button"
               onClick={() => setActiveTab('code')}
-              className={`py-2 text-[11px] font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+              className={`py-2 px-1 font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
                 activeTab === 'code'
                   ? 'bg-amber-500 text-slate-950 shadow-md font-black'
                   : 'text-slate-400 hover:text-slate-200'
@@ -226,7 +229,36 @@ export function AccessRestrictedScreen() {
               <KeyRound className="w-3.5 h-3.5" />
               <span>Passcode</span>
             </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('subscribe')}
+              className={`py-2 px-1 font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                activeTab === 'subscribe'
+                  ? 'bg-amber-500 text-slate-950 shadow-md font-black'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>Direct Pass</span>
+            </button>
           </div>
+
+          {/* TAB 0: UPI PAYMENT OPTION */}
+          {activeTab === 'upi' && (
+            <div className="animate-fade-in">
+              <UpiPaymentCard
+                defaultEmail={user?.email || ''}
+                onSuccess={(creds) => {
+                  setRegisteredCredentials({
+                    memberId: creds.memberId,
+                    password: creds.password,
+                    email: creds.email,
+                    plan: creds.plan,
+                  });
+                }}
+              />
+            </div>
+          )}
 
           {/* TAB 1: SUBSCRIBE & GET ID */}
           {activeTab === 'subscribe' && (
@@ -430,10 +462,10 @@ export function AccessRestrictedScreen() {
             </div>
           )}
 
-          {/* Admin Note Footer */}
-          <div className="pt-2 text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-            <span>Subscriber records stored securely in Firestore Database</span>
+          {/* Footer Note */}
+          <div className="pt-2 text-center text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+            <HelpCircle className="w-3.5 h-3.5 text-slate-500" />
+            <span>Subscriber accounts &amp; memberships managed securely</span>
           </div>
         </div>
       </div>

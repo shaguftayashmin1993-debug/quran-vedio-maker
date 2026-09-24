@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import {
   ShieldCheck,
@@ -24,8 +24,12 @@ import {
   Send,
   CheckCircle2,
   Lock,
+  Zap,
+  QrCode,
+  Smartphone,
+  Settings,
 } from 'lucide-react';
-import { UserRole, AllowedUser, AccessRequest, SubscriberRecord } from '../types';
+import { UserRole, AllowedUser, AccessRequest, SubscriberRecord, UpiPaymentRecord } from '../types';
 
 interface AdminAccessModalProps {
   isOpen: boolean;
@@ -41,6 +45,11 @@ export function AdminAccessModal({ isOpen, onClose }: AdminAccessModalProps) {
     accessCodes,
     allRegisteredUsers,
     subscribersList,
+    upiConfig,
+    upiTransactions,
+    updateUpiConfig,
+    verifyUpiPayment,
+    deleteUpiPayment,
     addAllowedUser,
     updateAllowedUserStatus,
     removeAllowedUser,
@@ -53,8 +62,48 @@ export function AdminAccessModal({ isOpen, onClose }: AdminAccessModalProps) {
     removeSubscriber,
   } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'subscribers' | 'members' | 'registered' | 'requests' | 'codes'>('subscribers');
+  const [activeTab, setActiveTab] = useState<'subscribers' | 'upi' | 'members' | 'registered' | 'requests' | 'codes'>('subscribers');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // UPI Config Form State
+  const [editUpiId, setEditUpiId] = useState(upiConfig?.upiId || 'shaguftayashmin1993@okaxis');
+  const [editPayeeName, setEditPayeeName] = useState(upiConfig?.payeeName || 'Quran Video Studio');
+  const [editMonthly, setEditMonthly] = useState(upiConfig?.monthlyPriceInr || 299);
+  const [editAnnual, setEditAnnual] = useState(upiConfig?.annualPriceInr || 1499);
+  const [editLifetime, setEditLifetime] = useState(upiConfig?.lifetimePriceInr || 2999);
+  const [isSavingUpiConfig, setIsSavingUpiConfig] = useState(false);
+  const [upiSavedMsg, setUpiSavedMsg] = useState(false);
+
+  // Sync state if upiConfig loads asynchronously
+  useEffect(() => {
+    if (upiConfig) {
+      setEditUpiId(upiConfig.upiId || 'shaguftayashmin1993@okaxis');
+      setEditPayeeName(upiConfig.payeeName || 'Quran Video Studio');
+      setEditMonthly(upiConfig.monthlyPriceInr || 299);
+      setEditAnnual(upiConfig.annualPriceInr || 1499);
+      setEditLifetime(upiConfig.lifetimePriceInr || 2999);
+    }
+  }, [upiConfig]);
+
+  const handleSaveUpiSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingUpiConfig(true);
+    try {
+      await updateUpiConfig({
+        upiId: editUpiId.trim(),
+        payeeName: editPayeeName.trim(),
+        monthlyPriceInr: Number(editMonthly) || 299,
+        annualPriceInr: Number(editAnnual) || 1499,
+        lifetimePriceInr: Number(editLifetime) || 2999,
+      });
+      setUpiSavedMsg(true);
+      setTimeout(() => setUpiSavedMsg(false), 3000);
+    } catch (err) {
+      console.error('Failed to save UPI config:', err);
+    } finally {
+      setIsSavingUpiConfig(false);
+    }
+  };
 
   // Subscriber Form State
   const [subEmail, setSubEmail] = useState('');
@@ -260,6 +309,19 @@ export function AdminAccessModal({ isOpen, onClose }: AdminAccessModalProps) {
           >
             <CreditCard className="w-3.5 h-3.5" />
             <span>Subscribers Database ({subscribersList.length})</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('upi')}
+            className={`py-2 px-3.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+              activeTab === 'upi'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'bg-slate-900/80 text-slate-400 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>⚡ UPI Payments ({upiTransactions.length})</span>
           </button>
 
           <button
@@ -656,7 +718,250 @@ export function AdminAccessModal({ isOpen, onClose }: AdminAccessModalProps) {
             </div>
           )}
 
-          {/* TAB 1: AUTHORIZED MEMBERS & WHITELIST */}
+          {/* TAB 0.5: UPI PAYMENTS & GATEWAY SETTINGS */}
+          {activeTab === 'upi' && (
+            <div className="space-y-5 animate-fade-in">
+              {/* 1. UPI Gateway Settings Configuration */}
+              <div className="p-4 rounded-2xl bg-[#0f182b] border border-amber-500/25 space-y-3.5 shadow-md">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                      <Settings className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                        <span>UPI Gateway &amp; Pricing Configuration</span>
+                        <span className="text-[10px] px-2 py-0.2 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Live Sync</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-400">
+                        Money paid by users will be sent directly to your UPI ID via Google Pay, PhonePe, or Paytm.
+                      </p>
+                    </div>
+                  </div>
+
+                  {upiSavedMsg && (
+                    <span className="text-[11px] font-bold text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/30">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Settings Saved!</span>
+                    </span>
+                  )}
+                </div>
+
+                <form onSubmit={handleSaveUpiSettings} className="space-y-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        Your UPI ID / VPA *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editUpiId}
+                        onChange={(e) => setEditUpiId(e.target.value)}
+                        placeholder="e.g. shaguftayashmin1993@okaxis"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl text-xs text-amber-300 font-mono font-bold outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">Your Google Pay, PhonePe, or Paytm UPI ID</span>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        Payee / Business Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={editPayeeName}
+                        onChange={(e) => setEditPayeeName(e.target.value)}
+                        placeholder="e.g. Quran Video Studio"
+                        className="w-full px-3 py-2 bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl text-xs text-slate-100 outline-none"
+                      />
+                      <span className="text-[10px] text-slate-400 mt-0.5 block">Appears on the user's UPI payment screen</span>
+                    </div>
+                  </div>
+
+                  {/* Pricing Tiers */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        Pro Monthly (₹)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-bold text-amber-400">₹</span>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={editMonthly}
+                          onChange={(e) => setEditMonthly(Number(e.target.value))}
+                          className="w-full pl-7 pr-3 py-2 bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl text-xs text-slate-100 font-bold font-mono outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        Creator Annual (₹)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-bold text-amber-400">₹</span>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={editAnnual}
+                          onChange={(e) => setEditAnnual(Number(e.target.value))}
+                          className="w-full pl-7 pr-3 py-2 bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl text-xs text-slate-100 font-bold font-mono outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-300 mb-1">
+                        Studio VIP Lifetime (₹)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-2 text-xs font-bold text-amber-400">₹</span>
+                        <input
+                          type="number"
+                          min="1"
+                          required
+                          value={editLifetime}
+                          onChange={(e) => setEditLifetime(Number(e.target.value))}
+                          className="w-full pl-7 pr-3 py-2 bg-slate-900 border border-slate-700 focus:border-amber-400 rounded-xl text-xs text-slate-100 font-bold font-mono outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={isSavingUpiConfig}
+                      className="py-2 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>{isSavingUpiConfig ? 'Saving Settings...' : 'Save UPI & Pricing Settings'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* 2. Transactions Roster */}
+              <div className="space-y-3">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-100 flex items-center gap-2">
+                      <Zap className="w-4 h-4 text-amber-400" />
+                      <span>Received UPI Transactions ({upiTransactions.length})</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-400">
+                      Audit all payments made via Google Pay, PhonePe, or Paytm with their 12-digit UTR receipt.
+                    </p>
+                  </div>
+
+                  {/* Revenue Summary Badge */}
+                  <div className="px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold flex items-center gap-1.5">
+                    <span>Total UPI Volume:</span>
+                    <span className="font-mono text-amber-400 font-black">
+                      ₹{upiTransactions.reduce((acc, t) => acc + (t.amountInr || 0), 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+
+                {upiTransactions.length === 0 ? (
+                  <div className="py-12 text-center border border-dashed border-slate-800 rounded-2xl bg-slate-900/40">
+                    <QrCode className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+                    <div className="text-xs font-bold text-slate-300">No UPI payments registered yet</div>
+                    <div className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                      When users subscribe using the UPI QR Code or mobile apps, their 12-digit UTR payment receipts and Member IDs will appear here.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2.5">
+                    {upiTransactions.map((tx) => {
+                      const isPending = tx.status === 'pending';
+                      const isRejected = tx.status === 'rejected';
+                      return (
+                        <div
+                          key={tx.id}
+                          className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700/80 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-slate-100">{tx.email}</span>
+                              <span className="text-[10px] px-2 py-0.2 rounded-full font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                                {tx.planName}
+                              </span>
+                              <span className="text-xs font-black font-mono text-emerald-400">
+                                ₹{tx.amountInr}
+                              </span>
+                              <span
+                                className={`text-[10px] px-2 py-0.2 rounded-full font-bold uppercase tracking-wider ${
+                                  isRejected
+                                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                    : isPending
+                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                                    : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                }`}
+                              >
+                                {tx.status || 'Active'}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center gap-3 text-[11px] text-slate-400 flex-wrap">
+                              <span className="flex items-center gap-1 font-mono">
+                                <strong>UTR:</strong>
+                                <span className="text-slate-200 select-all font-bold">{tx.utrNumber}</span>
+                              </span>
+                              {tx.memberId && (
+                                <span className="flex items-center gap-1 font-mono">
+                                  <strong>Member ID:</strong>
+                                  <span className="text-amber-300 font-bold">{tx.memberId}</span>
+                                </span>
+                              )}
+                              <span>
+                                {new Date(tx.createdAt).toLocaleDateString()} {new Date(tx.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 self-end sm:self-center shrink-0">
+                            {isRejected ? (
+                              <button
+                                type="button"
+                                onClick={() => verifyUpiPayment(tx.id, 'active')}
+                                className="py-1 px-2.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 transition-colors cursor-pointer"
+                              >
+                                Re-Approve
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => verifyUpiPayment(tx.id, 'rejected')}
+                                className="py-1 px-2.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 text-[11px] font-bold border border-red-500/20 transition-colors cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => deleteUpiPayment(tx.id)}
+                              className="p-1.5 rounded-lg bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition-colors cursor-pointer"
+                              title="Delete record"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           {activeTab === 'members' && (
             <div className="space-y-5">
               {/* Add User Card */}

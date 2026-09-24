@@ -30,8 +30,8 @@ const BG_IMAGE_URLS: Record<string, string> = {
   // 4K Makkah Al-Mukarramah
   'makkah-kaaba-majestic': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=85&w=2560&auto=format&fit=crop',
   'holy-kaaba-makkah': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=85&w=2560&auto=format&fit=crop',
-  'makkah-clock-tower-night': 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=85&w=2560&auto=format&fit=crop',
-  'kaaba-kiswah-gold': 'https://images.unsplash.com/photo-1578632767115-351597cf2477?q=85&w=2560&auto=format&fit=crop',
+  'makkah-clock-tower-night': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=85&w=2560&auto=format&fit=crop', // Replaced clock tower with Holy Kaaba
+  'kaaba-kiswah-gold': 'https://images.unsplash.com/photo-1564769625905-50e93615e769?q=85&w=2560&auto=format&fit=crop',
   'makkah-grand-minarets': 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=85&w=2560&auto=format&fit=crop',
   'makkah-grand-mosque-minarets': 'https://images.unsplash.com/photo-1591604129939-f1efa4d9f7fa?q=85&w=2560&auto=format&fit=crop',
   'makkah-haram-golden-night': 'https://images.unsplash.com/photo-1519817650390-64a93db51149?q=85&w=2560&auto=format&fit=crop',
@@ -40,7 +40,7 @@ const BG_IMAGE_URLS: Record<string, string> = {
   // 4K Madinah Al-Munawwarah
   'madinah-green-dome': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=85&w=2560&auto=format&fit=crop',
   'prophets-mosque-madinah': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=85&w=2560&auto=format&fit=crop',
-  'madinah-giant-umbrellas': 'https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?q=85&w=2560&auto=format&fit=crop',
+  'madinah-giant-umbrellas': 'https://images.unsplash.com/photo-1589182373726-e4f658ab50f0?q=85&w=2560&auto=format&fit=crop', // Replaced with Prophet's Mosque Green Dome
   'madinah-sacred-arches': 'https://images.unsplash.com/photo-1580418827493-f2b22c0a76cb?q=85&w=2560&auto=format&fit=crop',
   'madinah-minaret-sunset': 'https://images.unsplash.com/photo-1512632578888-169bbbc64f33?q=85&w=2560&auto=format&fit=crop',
   'madinah-marble-courtyard': 'https://images.unsplash.com/photo-1566127444979-b3d2b654e3d7?q=85&w=2560&auto=format&fit=crop',
@@ -79,8 +79,6 @@ export const SCENERY_ROTATION_LIST: VideoConfig['bgImageCategory'][] = [
   // Prioritize 4K Makkah and Madinah in rotation
   'makkah-kaaba-majestic',
   'madinah-green-dome',
-  'makkah-clock-tower-night',
-  'madinah-giant-umbrellas',
   'makkah-grand-minarets',
   'madinah-sacred-arches',
   'makkah-haram-golden-night',

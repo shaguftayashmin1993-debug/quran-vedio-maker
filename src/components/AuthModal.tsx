@@ -20,18 +20,17 @@ import {
   CreditCard,
   ArrowRight,
 } from 'lucide-react';
-import { SUPER_ADMIN_EMAIL } from '../lib/firebase';
 import { SubscriberRecord } from '../types';
+import { UpiPaymentCard } from './UpiPaymentCard';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose?: () => void;
-  initialMode?: 'subscribe' | 'login' | 'passcode' | 'quick';
+  initialMode?: 'upi' | 'subscribe' | 'login' | 'passcode' | 'quick';
 }
 
-export function AuthModal({ isOpen, onClose, initialMode = 'subscribe' }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, initialMode = 'upi' }: AuthModalProps) {
   const {
-    loginAsOwner,
     quickEmailLogin,
     loginWithGoogle,
     loginWithIdOrEmail,
@@ -39,7 +38,7 @@ export function AuthModal({ isOpen, onClose, initialMode = 'subscribe' }: AuthMo
     redeemAccessCodeDirect,
   } = useAuth();
 
-  const [mode, setMode] = useState<'subscribe' | 'login' | 'passcode' | 'quick'>(initialMode);
+  const [mode, setMode] = useState<'upi' | 'subscribe' | 'login' | 'passcode' | 'quick'>(initialMode);
 
   // Form Fields
   const [identifier, setIdentifier] = useState(''); // Email or Member ID
@@ -167,21 +166,6 @@ You can log in using either your Member ID or Email.
     }
   };
 
-  // 3. 1-Click Master Owner Login
-  const handleOwnerQuickLogin = async () => {
-    setError(null);
-    setIsSubmitting(true);
-    try {
-      await loginAsOwner();
-      if (onClose) onClose();
-    } catch (err: any) {
-      console.error(err);
-      setError(err?.message || 'Failed to authenticate owner.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   // 4. Fast Passwordless Email Login
   const handleQuickEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -266,30 +250,22 @@ You can log in using either your Member ID or Email.
           </p>
         </div>
 
-        {/* 1-Click Master Owner Button */}
-        <div className="px-5 pb-3">
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={handleOwnerQuickLogin}
-            className="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-amber-400 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-between cursor-pointer active:scale-[0.99] disabled:opacity-50 border border-amber-300/40"
-          >
-            <div className="flex items-center gap-2 text-left">
-              <div className="w-6 h-6 rounded-lg bg-slate-950/15 flex items-center justify-center shrink-0">
-                <Crown className="w-3.5 h-3.5 text-slate-950 fill-slate-950/40" />
-              </div>
-              <div>
-                <div className="font-extrabold text-[11px] leading-tight">Master Owner Quick-Pass</div>
-                <div className="text-[10px] text-slate-900/80 font-mono">{SUPER_ADMIN_EMAIL}</div>
-              </div>
-            </div>
-            <span className="text-[10px] font-bold bg-slate-950/20 px-2 py-0.5 rounded-lg">Instant Enter &rarr;</span>
-          </button>
-        </div>
-
         {/* Navigation Tabs (Only if not showing issued credentials card) */}
         {!issuedCredentials && (
-          <div className="grid grid-cols-4 border-b border-slate-800 px-5 gap-1 text-[11px] font-bold">
+          <div className="grid grid-cols-5 border-b border-slate-800 px-5 gap-1 text-[11px] font-bold">
+            <button
+              type="button"
+              onClick={() => { setMode('upi'); setError(null); setSuccessMsg(null); }}
+              className={`pb-2.5 transition-colors border-b-2 cursor-pointer flex items-center justify-center gap-1 ${
+                mode === 'upi'
+                  ? 'border-amber-400 text-amber-400 font-black'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>UPI Pay</span>
+            </button>
+
             <button
               type="button"
               onClick={() => { setMode('subscribe'); setError(null); setSuccessMsg(null); }}
@@ -300,7 +276,7 @@ You can log in using either your Member ID or Email.
               }`}
             >
               <CreditCard className="w-3.5 h-3.5" />
-              <span>Subscribe</span>
+              <span>Direct</span>
             </button>
 
             <button
@@ -478,6 +454,24 @@ You can log in using either your Member ID or Email.
             </div>
           ) : (
             <>
+              {/* TAB 0: UPI PAYMENT CARD */}
+              {mode === 'upi' && (
+                <div className="animate-fade-in">
+                  <UpiPaymentCard
+                    defaultEmail={email}
+                    onSuccess={(creds) => {
+                      setIssuedCredentials({
+                        memberId: creds.memberId,
+                        password: creds.password,
+                        email: creds.email,
+                        displayName: creds.email.split('@')[0],
+                        plan: creds.plan,
+                      });
+                    }}
+                  />
+                </div>
+              )}
+
               {/* TAB 1: SUBSCRIBE & GET ID/PASSWORD */}
               {mode === 'subscribe' && (
                 <form onSubmit={handleSubscribeSubmit} className="space-y-3.5">

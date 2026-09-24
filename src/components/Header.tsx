@@ -132,15 +132,15 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </nav>
 
-          {/* Admin Control Button */}
-          {isAdmin && onOpenAdminAccess && (
+          {/* Admin Control Button - Exclusively for Studio Owner */}
+          {isOwner && onOpenAdminAccess && (
             <button
               type="button"
               onClick={onOpenAdminAccess}
-              className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/40 text-xs font-bold transition-all shadow-sm cursor-pointer"
+              className="relative flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500/20 via-amber-400/25 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 text-amber-300 border border-amber-400/60 text-xs font-black transition-all shadow-md shadow-amber-500/10 cursor-pointer"
             >
-              <ShieldCheck className="w-4 h-4 text-amber-400" />
-              <span>Manage Access &amp; Subscribers</span>
+              <Crown className="w-3.5 h-3.5 text-amber-400 fill-amber-400/30" />
+              <span>Admin Dashboard &amp; UPI</span>
               {pendingCount > 0 && (
                 <span className="px-1.5 py-0.2 rounded-full bg-red-500 text-white text-[10px] font-black animate-pulse">
                   {pendingCount}
@@ -181,17 +181,17 @@ export const Header: React.FC<HeaderProps> = ({
                     </div>
                   </div>
 
-                  {isAdmin && onOpenAdminAccess && (
+                  {isOwner && onOpenAdminAccess && (
                     <button
                       type="button"
                       onClick={() => {
                         setShowUserDropdown(false);
                         onOpenAdminAccess();
                       }}
-                      className="w-full p-2 rounded-xl text-left text-xs text-amber-300 hover:bg-amber-500/15 flex items-center gap-2 transition-colors cursor-pointer"
+                      className="w-full p-2 rounded-xl text-left text-xs font-bold text-amber-300 hover:bg-amber-500/15 flex items-center gap-2 transition-colors cursor-pointer"
                     >
-                      <Users className="w-3.5 h-3.5 text-amber-400" />
-                      <span>Manage Allowed Users</span>
+                      <Crown className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Admin Dashboard &amp; UPI</span>
                     </button>
                   )}
 
