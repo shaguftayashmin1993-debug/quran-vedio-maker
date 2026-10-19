@@ -398,7 +398,7 @@ export async function fetchAudioBuffer(
   trimSilence = true,
   fallbackText?: string,
   fallbackLang?: string,
-  dspOptions?: { speed?: number; resonance120Hz?: boolean; voiceProfile?: string }
+  dspOptions?: { speed?: number; resonance120Hz?: boolean; voiceProfile?: string; customAudioUrl?: string }
 ): Promise<AudioBuffer | null> {
   const profile = dspOptions?.voiceProfile || (
     folder === 'tts-ur-scholar' ? 'scholar-mature-baritone' :
@@ -411,16 +411,35 @@ export async function fetchAudioBuffer(
   const isScholarVoice = folder === 'tts-ur-scholar' || folder.includes('scholar') || profile === 'scholar-mature-baritone';
   const speed = dspOptions?.speed || 1.0;
   const resonance120Hz = dspOptions?.resonance120Hz !== undefined ? dspOptions.resonance120Hz : isScholarVoice;
+  const customUrl = dspOptions?.customAudioUrl || (
+    folder.startsWith('blob:') || folder.startsWith('data:') || (folder.startsWith('http') && !folder.includes('everyayah.com')) ? folder : null
+  );
 
-  const cacheKey = `${folder}:${surahNum}:${ayahNum}:${trimSilence}:${fallbackText || ''}:${fallbackLang || ''}:${speed}:${resonance120Hz}:${profile}`;
+  const cacheKey = `${folder}:${surahNum}:${ayahNum}:${trimSilence}:${fallbackText || ''}:${fallbackLang || ''}:${speed}:${resonance120Hz}:${profile}:${customUrl || ''}`;
   if (audioBufferCache.has(cacheKey)) {
     return audioBufferCache.get(cacheKey)!;
   }
 
   let resultBuffer: AudioBuffer | null = null;
 
+  // Custom user microphone audio or uploaded MP3
+  if (customUrl) {
+    try {
+      const response = await fetch(customUrl);
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        if (arrayBuffer && arrayBuffer.byteLength > 64) {
+          const decodedBuffer = await safeDecodeAudioData(audioCtx, arrayBuffer);
+          resultBuffer = trimSilence ? trimAudioBufferSilence(audioCtx, decodedBuffer) : decodedBuffer;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to decode user custom own voice buffer:', e);
+    }
+  }
+
   // If folder is AI Spoken Voice (tts-ur, tts-ur-scholar, tts-en, etc), directly generate synthetic speech from /api/tts
-  if (folder.startsWith('tts')) {
+  if (!resultBuffer && folder.startsWith('tts')) {
     if (fallbackText) {
       let lang = fallbackLang || (folder.startsWith('tts-') ? folder.replace('tts-', '') : 'ur');
       if (lang.startsWith('ur-')) lang = 'ur';

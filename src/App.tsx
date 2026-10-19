@@ -16,6 +16,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthModal } from './components/AuthModal';
 import { AccessRestrictedScreen } from './components/AccessRestrictedScreen';
 import { AdminAccessModal } from './components/AdminAccessModal';
+import { IntroGuide } from './components/IntroGuide';
 import { syncSavedVideoToCloud, deleteSavedVideoFromCloud } from './utils/cloudSync';
 import { getSurahDetails } from './utils/quranDataService';
 
@@ -24,6 +25,7 @@ function StudioApp() {
 
   const [activeTab, setActiveTab] = useState<'studio' | 'audio' | 'library'>('studio');
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState<boolean>(false);
 
   // Task Session (Draft Checkpoint / Unfinished Task) State
   const [taskSession, setTaskSession] = useState<SavedTaskSession | null>(() => {
@@ -351,6 +353,7 @@ function StudioApp() {
         isTaskCompleted={taskSession?.status === 'completed'}
         onResumeTaskClick={() => taskSession && handleResumeTask(taskSession)}
         onOpenAdminAccess={() => setIsAdminModalOpen(true)}
+        onOpenGuide={() => setIsGuideModalOpen(true)}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 lg:p-8 space-y-6">
@@ -376,11 +379,13 @@ function StudioApp() {
                 endAyah={config.endAyah}
                 onRangeChange={handleRangeChange}
                 onOpenBatchExport={() => setIsBatchExportModalOpen(true)}
+                onOpenGuide={() => setIsGuideModalOpen(true)}
               />
 
               <ReciterAndStyleConfig
                 config={config}
                 onChange={handleConfigChange}
+                surah={surahData}
               />
             </div>
 
@@ -396,6 +401,7 @@ function StudioApp() {
                 isExportModalOpen={isExportModalOpen}
                 onOpenBatchExportModal={() => setIsBatchExportModalOpen(true)}
                 onChangeConfig={handleConfigChange}
+                onOpenGuide={() => setIsGuideModalOpen(true)}
               />
             </div>
           </div>
@@ -479,6 +485,17 @@ function StudioApp() {
           }}
         />
       )}
+
+      {/* Studio Guide Video & Interactive Walkthrough Modal */}
+      <IntroGuide
+        isOpen={isGuideModalOpen}
+        onClose={() => setIsGuideModalOpen(false)}
+        onStartCreating={() => {
+          setIsGuideModalOpen(false);
+          setActiveTab('studio');
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      />
     </div>
   );
 }

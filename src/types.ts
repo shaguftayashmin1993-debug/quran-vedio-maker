@@ -78,6 +78,8 @@ export type TextSize = 'compact' | 'normal' | 'large' | 'extra-large' | 'huge';
 
 export type BgImageCategory =
   | 'none'
+  | 'custom-upload' // User-uploaded custom background photo
+  | 'custom-video' // User-uploaded custom background video (.mp4, .webm, .mov)
   // 4K Makkah Al-Mukarramah
   | 'makkah-kaaba-majestic'
   | 'makkah-clock-tower-night'
@@ -158,9 +160,28 @@ export interface VideoConfig {
     | 'dignified-female-scholar'
     | 'authentic-human'
     | 'standard';
-  deliverySpeed?: number; // 0.85, 1.0, 1.15, 1.25, 1.5, 2.0, 2.5
+  deliverySpeed?: number; // 0.5, 0.75, 0.85, 1.0, 1.15, 1.25, 1.5, 1.75, 2.0, 2.5
+  recitationSpeed?: number; // 0.5, 0.75, 0.85, 1.0, 1.15, 1.25, 1.5, 1.75, 2.0
+  playbackSpeed?: number; // 0.5 to 2.5
   slotType?: SlotType;
   baritoneResonance?: boolean; // 120Hz deep chest resonance
+  // Own Voice Recitation & Translation Recording support
+  customRecitationAudios?: { [ayahNum: number]: string };
+  customRecitationUrl?: string;
+  customTranslationAudios?: { [ayahNum: number]: string };
+  customTranslationUrl?: string;
+  // User Uploaded Custom Background Photo support
+  customBgImageUrl?: string; // Direct data or blob URL of user uploaded image
+  customBgImageName?: string; // Filename of uploaded image
+  customBgImages?: { id: string; url: string; name: string }[]; // Saved user background photos
+  // User Uploaded Custom Background Video support
+  bgType?: 'image' | 'video'; // Type of background currently selected
+  customBgVideoUrl?: string; // Direct blob URL or object URL of user uploaded video
+  customBgVideoName?: string; // Filename of uploaded video
+  customBgVideoDuration?: number; // Video duration in seconds
+  customBgVideos?: { id: string; url: string; name: string; duration?: number; width?: number; height?: number }[]; // Saved user background videos
+  bgVideoMuted?: boolean; // Whether background video sound is muted (default: true)
+  bgVideoLoop?: boolean; // Whether background video loops continuously (default: true)
 }
 
 export interface SavedVideo {

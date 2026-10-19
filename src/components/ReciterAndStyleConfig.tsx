@@ -1,12 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Palette, Video, Languages, Type, Sparkles, Volume2, Zap, Image as ImageIcon, Film, ShieldCheck, Star, Play, Pause, Headphones, ZoomIn } from 'lucide-react';
-import { VideoConfig, VideoStyle, AudioMode, TranslationLang, ArabicScript, BgImageCategory, TextAnimation, TextSize } from '../types';
+import { Mic, Palette, Video, Languages, Type, Sparkles, Volume2, Zap, Image as ImageIcon, Film, ShieldCheck, Star, Play, Pause, Headphones, ZoomIn, Gauge, RotateCcw, Upload } from 'lucide-react';
+import { VideoConfig, VideoStyle, AudioMode, TranslationLang, ArabicScript, BgImageCategory, TextAnimation, TextSize, Surah } from '../types';
 import { RECITERS, TRANSLATION_RECITERS, getAudioUrl } from '../data/reciters';
 import { ReciterReviewModal } from './ReciterReviewModal';
+import { OwnVoiceRecorderCard } from './OwnVoiceRecorderCard';
+import { CustomBackgroundUploader } from './CustomBackgroundUploader';
+import { CustomVideoUploader } from './CustomVideoUploader';
 
 interface ConfigProps {
   config: VideoConfig;
   onChange: (updated: Partial<VideoConfig>) => void;
+  surah?: Surah | null;
 }
 
 const VIDEO_STYLES: { id: VideoStyle; name: string; desc: string; previewBg: string }[] = [
@@ -279,10 +283,12 @@ const TEXT_ANIMATIONS: { id: TextAnimation; name: string; desc: string }[] = [
   { id: 'none', name: 'Static (Instant)', desc: 'Instant text display without animation effect' }
 ];
 
-export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange }) => {
+export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange, surah }) => {
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
   const [isPlayingQuickSample, setIsPlayingQuickSample] = useState(false);
-  const [bgTab, setBgTab] = useState<'all' | 'makkah' | 'madinah' | 'heritage' | 'nature'>('all');
+  const [bgTab, setBgTab] = useState<'all' | 'custom' | 'video' | 'makkah' | 'madinah' | 'heritage' | 'nature'>(
+    config.bgImageCategory === 'custom-video' ? 'video' : config.bgImageCategory === 'custom-upload' ? 'custom' : 'all'
+  );
   const quickAudioRef = useRef<HTMLAudioElement | null>(null);
 
   const currentReciter = RECITERS.find((r) => r.folder === config.reciterFolder) || RECITERS[0];
@@ -486,11 +492,32 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               ))}
             </select>
 
+            {/* Quick Own Voice Recitation Button */}
+            <button
+              type="button"
+              disabled={config.audioMode === 'translation-only'}
+              onClick={() => {
+                onChange({
+                  reciterFolder: 'custom-own-voice',
+                  reciterName: 'Your Own Voice Recitation'
+                });
+              }}
+              className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 cursor-pointer ${
+                config.reciterFolder === 'custom-own-voice'
+                  ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-extrabold'
+                  : 'bg-[#141e33] border-slate-700 text-amber-300 hover:bg-[#1c2a47]'
+              }`}
+              title="Record or upload your own Quran recitation voice"
+            >
+              <Mic className="w-4 h-4" />
+              <span className="hidden sm:inline">Own Voice</span>
+            </button>
+
             {/* Quick Listen Sample Button */}
             <button
               type="button"
               onClick={toggleQuickSample}
-              disabled={config.audioMode === 'translation-only'}
+              disabled={config.audioMode === 'translation-only' || config.reciterFolder === 'custom-own-voice'}
               title="Listen to voice sample"
               className={`p-2.5 rounded-xl border flex items-center justify-center transition-all flex-shrink-0 ${
                 isPlayingQuickSample
@@ -502,6 +529,16 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
             </button>
           </div>
 
+          {/* Custom Own Voice Recitation Recorder & Uploader Panel */}
+          {config.reciterFolder === 'custom-own-voice' && config.audioMode !== 'translation-only' && (
+            <OwnVoiceRecorderCard
+              type="recitation"
+              surah={surah}
+              config={config}
+              onChange={onChange}
+            />
+          )}
+
           {/* Reciter Review Snippet Banner */}
           {currentReciter && (
             <div className="bg-[#121c30] p-2.5 rounded-xl border border-slate-800/80 flex items-center justify-between text-xs text-slate-300 gap-2">
@@ -512,6 +549,57 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               </div>
               <div className="flex items-center gap-1 text-amber-400 font-bold flex-shrink-0">
                 <Star className="w-3 h-3 fill-amber-400" /> {currentReciter.rating?.toFixed(1) || '4.9'}
+              </div>
+            </div>
+          )}
+
+          {/* Recitation Speed Control Options */}
+          {config.audioMode !== 'translation-only' && (
+            <div className="pt-2.5 border-t border-slate-800/80 space-y-2">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-medium flex items-center gap-1.5">
+                  <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Recitation Speed:</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-mono font-bold bg-[#111927] px-2 py-0.5 rounded border border-slate-700">
+                    {(config.recitationSpeed || 1.0).toFixed(2).replace(/\.00$/, '')}x
+                    {(config.recitationSpeed || 1.0) === 1.0 && ' (Normal)'}
+                  </span>
+                  {(config.recitationSpeed || 1.0) !== 1.0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ recitationSpeed: 1.0 })}
+                      className="text-[11px] text-slate-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
+                      title="Reset recitation speed to 1.0x"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { label: '0.75x (Tartil Slow)', val: 0.75 },
+                  { label: '0.85x (Calm)', val: 0.85 },
+                  { label: '1.0x (Normal)', val: 1.0 },
+                  { label: '1.15x (Brisk)', val: 1.15 },
+                  { label: '1.25x (Fast)', val: 1.25 },
+                  { label: '1.5x (Accelerated)', val: 1.5 }
+                ].map((s) => (
+                  <button
+                    key={s.val}
+                    type="button"
+                    onClick={() => onChange({ recitationSpeed: s.val })}
+                    className={`px-2 py-1 text-[11px] rounded-lg font-medium transition-all ${
+                      (config.recitationSpeed || 1.0) === s.val
+                        ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                        : 'bg-[#182643] text-slate-300 hover:text-white hover:bg-[#203157]'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -551,53 +639,112 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               All AI Spoken Voices (Urdu, English, Hindi, French, Indonesian, Spanish, Turkish, Persian, Bosnian) are generated via real-time Text-to-Speech API with zero Content ID match—100% safe for YouTube monetization, Shorts &amp; Reels.
             </p>
 
-            <select
-              value={config.translationReciterFolder}
-              onChange={(e) => {
-                const selected = TRANSLATION_RECITERS.find((t) => t.folder === e.target.value);
-                const folderVal = e.target.value;
-                let profile: 'scholar-mature-baritone' | 'elder-bayan-warm' | 'mufti-deep-resonant' | 'gentle-muallim-narrator' | 'dignified-female-scholar' | 'authentic-human' | 'standard' = 'standard';
+            <div className="flex items-center gap-2">
+              <select
+                value={config.translationReciterFolder}
+                onChange={(e) => {
+                  const selected = TRANSLATION_RECITERS.find((t) => t.folder === e.target.value);
+                  const folderVal = e.target.value;
+                  let profile: 'scholar-mature-baritone' | 'elder-bayan-warm' | 'mufti-deep-resonant' | 'gentle-muallim-narrator' | 'dignified-female-scholar' | 'authentic-human' | 'standard' = 'standard';
 
-                if (folderVal === 'tts-ur-scholar') profile = 'scholar-mature-baritone';
-                else if (folderVal === 'tts-ur-bayan') profile = 'elder-bayan-warm';
-                else if (folderVal === 'tts-ur-mufti') profile = 'mufti-deep-resonant';
-                else if (folderVal === 'tts-ur-muallim') profile = 'gentle-muallim-narrator';
-                else if (folderVal === 'translations/urdu_farhat_hashmi') profile = 'dignified-female-scholar';
-                else if (folderVal === 'translations/urdu_shamshad_ali_khan_46kbps') profile = 'authentic-human';
+                  if (folderVal === 'tts-ur-scholar') profile = 'scholar-mature-baritone';
+                  else if (folderVal === 'tts-ur-bayan') profile = 'elder-bayan-warm';
+                  else if (folderVal === 'tts-ur-mufti') profile = 'mufti-deep-resonant';
+                  else if (folderVal === 'tts-ur-muallim') profile = 'gentle-muallim-narrator';
+                  else if (folderVal === 'translations/urdu_farhat_hashmi') profile = 'dignified-female-scholar';
+                  else if (folderVal === 'translations/urdu_shamshad_ali_khan_46kbps') profile = 'authentic-human';
 
-                onChange({
-                  translationReciterFolder: e.target.value,
-                  translationReciterName: selected ? selected.name : e.target.value,
-                  voiceProfile: profile,
-                  baritoneResonance: profile !== 'standard' && profile !== 'authentic-human'
-                });
-              }}
-              className="w-full bg-[#17233d] border border-amber-500/40 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition-all font-semibold"
-            >
-              {TRANSLATION_RECITERS.map((tr) => (
-                <option key={tr.id} value={tr.folder}>
-                  {tr.name} ({tr.quality})
-                </option>
-              ))}
-            </select>
+                  onChange({
+                    translationReciterFolder: e.target.value,
+                    translationReciterName: selected ? selected.name : e.target.value,
+                    voiceProfile: profile,
+                    baritoneResonance: profile !== 'standard' && profile !== 'authentic-human'
+                  });
+                }}
+                className="w-full bg-[#17233d] border border-amber-500/40 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-sm text-slate-100 focus:outline-none transition-all font-semibold"
+              >
+                {TRANSLATION_RECITERS.map((tr) => (
+                  <option key={tr.id} value={tr.folder}>
+                    {tr.name} ({tr.quality})
+                  </option>
+                ))}
+              </select>
 
-            {/* Voice Speed Control */}
-            <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
-              <span className="text-xs text-slate-300 font-medium">Translation Voice Speed:</span>
-              <div className="flex items-center gap-1.5">
+              {/* Quick Own Voice Translation Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  onChange({
+                    translationReciterFolder: 'custom-own-voice-translation',
+                    translationReciterName: 'Your Own Voice Translation'
+                  });
+                }}
+                className={`px-3 py-2.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 flex-shrink-0 cursor-pointer ${
+                  config.translationReciterFolder === 'custom-own-voice-translation'
+                    ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md font-extrabold'
+                    : 'bg-[#17233d] border-amber-500/40 text-amber-300 hover:bg-[#203157]'
+                }`}
+                title="Record or upload your own spoken translation voice"
+              >
+                <Mic className="w-4 h-4" />
+                <span className="hidden sm:inline">Own Voice</span>
+              </button>
+            </div>
+
+            {/* Custom Own Voice Translation Recorder & Uploader Panel */}
+            {config.translationReciterFolder === 'custom-own-voice-translation' && (
+              <OwnVoiceRecorderCard
+                type="translation"
+                surah={surah}
+                config={config}
+                onChange={onChange}
+              />
+            )}
+
+            {/* Translation Voice Speed Control with Comprehensive Options */}
+            <div className="pt-3 border-t border-slate-800/80 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-semibold flex items-center gap-1.5">
+                  <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Translation Voice Speed:</span>
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-400 font-mono font-bold bg-[#0d1424] px-2.5 py-0.5 rounded-lg border border-amber-500/30">
+                    {(config.deliverySpeed || config.translationSpeechRate || 1.0).toFixed(2).replace(/\.00$/, '')}x
+                    {(config.deliverySpeed || config.translationSpeechRate || 1.0) === 1.0 && ' (Normal Authentic)'}
+                  </span>
+                  {(config.deliverySpeed || config.translationSpeechRate || 1.0) !== 1.0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ translationSpeechRate: 1.0, deliverySpeed: 1.0 })}
+                      className="text-[11px] text-slate-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
+                      title="Reset to 1.0x Normal speed"
+                    >
+                      <RotateCcw className="w-3 h-3" /> Reset
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Preset Speed Buttons */}
+              <div className="flex items-center gap-1.5 flex-wrap">
                 {[
-                  { label: '0.85x (Slow & Calm)', val: 0.85 },
-                  { label: '1.0x (Normal Authentic)', val: 1.0 },
+                  { label: '0.5x (Deep Study)', val: 0.5 },
+                  { label: '0.75x (Slow Tartil)', val: 0.75 },
+                  { label: '0.85x (Calm)', val: 0.85 },
+                  { label: '1.0x (Normal)', val: 1.0 },
                   { label: '1.15x (Brisk)', val: 1.15 },
                   { label: '1.25x (Fast)', val: 1.25 },
-                  { label: '1.5x (Accelerated)', val: 1.5 }
+                  { label: '1.5x (Accelerated)', val: 1.5 },
+                  { label: '1.75x (Speedy)', val: 1.75 },
+                  { label: '2.0x (2X Double)', val: 2.0 }
                 ].map((s) => (
                   <button
                     key={s.val}
                     type="button"
                     onClick={() => onChange({ translationSpeechRate: s.val, deliverySpeed: s.val })}
                     className={`px-2.5 py-1 text-xs rounded-lg font-medium transition-all ${
-                      (config.deliverySpeed || config.translationSpeechRate || 1.0) === s.val
+                      Math.abs((config.deliverySpeed || config.translationSpeechRate || 1.0) - s.val) < 0.02
                         ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
                         : 'bg-[#182643] text-slate-300 hover:text-white hover:bg-[#203157]'
                     }`}
@@ -605,6 +752,25 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
                     {s.label}
                   </button>
                 ))}
+              </div>
+
+              {/* Fine-Tuning Speed Slider */}
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-[10px] text-slate-400 font-mono">0.5x</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="2.5"
+                  step="0.05"
+                  value={config.deliverySpeed || config.translationSpeechRate || 1.0}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    onChange({ translationSpeechRate: val, deliverySpeed: val });
+                  }}
+                  className="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg appearance-none"
+                  title="Fine-tune translation voice speed"
+                />
+                <span className="text-[10px] text-slate-400 font-mono">2.5x</span>
               </div>
             </div>
 
@@ -1040,10 +1206,12 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
           </span>
         </div>
 
-        {/* Category Tabs: Makkah 4K, Madinah 4K, Islamic Heritage, Nature */}
+        {/* Category Tabs: Custom Upload, Makkah 4K, Madinah 4K, Islamic Heritage, Nature */}
         <div className="flex flex-wrap items-center gap-1.5 pb-1">
           {[
             { id: 'all', label: '🌟 All Sceneries' },
+            { id: 'video', label: '🎬 Upload Video(s)' },
+            { id: 'custom', label: '📸 Upload Photo(s)' },
             { id: 'makkah', label: '🕋 Makkah Al-Mukarramah 4K' },
             { id: 'madinah', label: '🕌 Madinah Al-Munawwarah 4K' },
             { id: 'heritage', label: '📜 Islamic Heritage' },
@@ -1055,7 +1223,7 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
               onClick={() => setBgTab(tab.id as any)}
               className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                 bgTab === tab.id
-                  ? 'bg-amber-400 text-slate-950 shadow-sm shadow-amber-400/30'
+                  ? 'bg-amber-400 text-slate-950 shadow-sm shadow-amber-400/30 font-extrabold'
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-750 hover:text-white border border-slate-700/50'
               }`}
             >
@@ -1064,8 +1232,109 @@ export const ReciterAndStyleConfig: React.FC<ConfigProps> = ({ config, onChange 
           ))}
         </div>
 
+        {/* Custom Video Background Upload Card */}
+        {(bgTab === 'video' || config.bgImageCategory === 'custom-video') && (
+          <CustomVideoUploader
+            config={config}
+            onChange={onChange}
+          />
+        )}
+
+        {/* Custom Background Upload Card when Custom Tab is selected or Custom Upload is active */}
+        {(bgTab === 'custom' || config.bgImageCategory === 'custom-upload') && (
+          <CustomBackgroundUploader
+            config={config}
+            onChange={onChange}
+          />
+        )}
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {BG_IMAGE_CATEGORIES.filter((bgCat) => {
+          {/* Quick Video Upload Tile inside grid */}
+          {(bgTab === 'all' || bgTab === 'video') && (
+            <div
+              onClick={() => setBgTab('video')}
+              className={`p-3 rounded-xl border-2 border-dashed cursor-pointer transition-all flex flex-col justify-between text-left group ${
+                config.bgImageCategory === 'custom-video'
+                  ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-500/30'
+                  : 'border-amber-500/40 bg-[#121c32]/80 hover:border-amber-400 hover:bg-[#16233d]'
+              }`}
+            >
+              {config.customBgVideoUrl ? (
+                <div className="h-16 w-full rounded-lg mb-2 overflow-hidden relative border border-amber-500/50 bg-black">
+                  <video
+                    src={config.customBgVideoUrl}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-1.5">
+                    <span className="text-[10px] font-bold text-amber-300 truncate">
+                      ✓ Active: {config.customBgVideoName || 'Your Background Video'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-16 w-full rounded-lg mb-2 border border-dashed border-amber-500/40 bg-amber-500/5 flex flex-col items-center justify-center text-amber-400 text-xs font-semibold gap-1 group-hover:bg-amber-500/10">
+                  <Film className="w-5 h-5 animate-pulse" />
+                  <span className="text-[10px]">Upload Video Background</span>
+                </div>
+              )}
+              <div className="text-xs font-bold text-amber-300 flex items-center justify-between">
+                <span>🎬 Upload Your Own Video</span>
+                {config.bgImageCategory === 'custom-video' && (
+                  <span className="text-[9px] bg-amber-400 text-slate-950 px-1 py-0.5 rounded font-extrabold">ACTIVE</span>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 line-clamp-1">
+                {config.customBgVideoName || 'MP4, WebM, MOV drone clip or scenic timelapse'}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Photo Upload Tile inside grid */}
+          {(bgTab === 'all' || bgTab === 'custom') && (
+            <div
+              onClick={() => setBgTab('custom')}
+              className={`p-3 rounded-xl border-2 border-dashed cursor-pointer transition-all flex flex-col justify-between text-left group ${
+                config.bgImageCategory === 'custom-upload'
+                  ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-500/30'
+                  : 'border-amber-500/40 bg-[#121c32]/80 hover:border-amber-400 hover:bg-[#16233d]'
+              }`}
+            >
+              {config.customBgImageUrl ? (
+                <div className="h-16 w-full rounded-lg mb-2 overflow-hidden relative border border-amber-500/50 bg-black">
+                  <img
+                    src={config.customBgImageUrl}
+                    alt="Custom Upload"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-1.5">
+                    <span className="text-[10px] font-bold text-amber-300 truncate">
+                      ✓ Active: {config.customBgImageName || 'Your Uploaded Image'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="h-16 w-full rounded-lg mb-2 border border-dashed border-amber-500/40 bg-amber-500/5 flex flex-col items-center justify-center text-amber-400 text-xs font-semibold gap-1 group-hover:bg-amber-500/10">
+                  <Upload className="w-5 h-5 animate-pulse" />
+                  <span className="text-[10px]">Upload Your Image</span>
+                </div>
+              )}
+              <div className="text-xs font-bold text-amber-300 flex items-center justify-between">
+                <span>📸 Upload Your Own Photo</span>
+                {config.bgImageCategory === 'custom-upload' && (
+                  <span className="text-[9px] bg-amber-400 text-slate-950 px-1 py-0.5 rounded font-extrabold">ACTIVE</span>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-400 line-clamp-1">
+                {config.customBgImageName || 'Use your own mosque, scenic view, or design as background'}
+              </div>
+            </div>
+          )}
+
+          {bgTab !== 'custom' && bgTab !== 'video' && BG_IMAGE_CATEGORIES.filter((bgCat) => {
             if (bgTab === 'makkah') return bgCat.id.startsWith('makkah') || bgCat.id.includes('kaaba');
             if (bgTab === 'madinah') return bgCat.id.startsWith('madinah') || bgCat.id.includes('prophet');
             if (bgTab === 'heritage') {

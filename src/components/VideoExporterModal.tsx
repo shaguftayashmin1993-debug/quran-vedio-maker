@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { X, Film, CheckCircle2, Download, FileText, Loader2, Play, Minimize2, Maximize2, Music, Home, FileVideo, Sparkles, Compass, ChevronRight, Square, Clock, ShieldCheck, ArrowLeft, LogOut } from 'lucide-react';
 import { Surah, VideoConfig, SavedVideo, Ayah } from '../types';
-import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages, ensureBackgroundImageLoaded } from '../utils/canvasRenderer';
+import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages, ensureBackgroundImageLoaded, setCustomBackgroundVideoUrl, getOrCreateVideoElement } from '../utils/canvasRenderer';
 import { generateSrtSubtitles, generateVttSubtitles, downloadTextFile, SubtitleCue } from '../utils/subtitleGenerator';
 import { fetchAudioBuffer, stripBismillahFromAyah1, audioBuffersToCombinedBlob, concatenateAudioBuffersWithOffsets, createSilentBuffer } from '../utils/audioUtils';
 import { getAyahTranslationText, getSpokenTranslationTextAndLang } from '../utils/translationUtils';
@@ -257,8 +257,35 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = 'high';
 
-      // Ensure 4K Holy Scenery is completely loaded into memory before first frame capture
-      await ensureBackgroundImageLoaded(config.bgImageCategory);
+      // Ensure 4K Holy Scenery or user custom background is completely loaded into memory before first frame capture
+      await ensureBackgroundImageLoaded(config.bgImageCategory, config.customBgImageUrl);
+      if (config.bgImageCategory === 'custom-upload' && config.customBgImages && config.customBgImages.length > 0) {
+        await Promise.all(
+          config.customBgImages.map((img) => ensureBackgroundImageLoaded('custom-upload', img.url))
+        );
+      }
+
+      // Initialize background video if custom video is selected
+      let bgVideoEl: HTMLVideoElement | null = null;
+      if (config.bgImageCategory === 'custom-video' || config.customBgVideoUrl) {
+        bgVideoEl = setCustomBackgroundVideoUrl(config.customBgVideoUrl || null);
+        if (config.customBgVideos && config.customBgVideos.length > 0) {
+          for (const vid of config.customBgVideos) {
+            const v = getOrCreateVideoElement(vid.url);
+            try {
+              await v.play();
+            } catch (e) {}
+          }
+        }
+        if (bgVideoEl) {
+          bgVideoEl.currentTime = 0;
+          try {
+            await bgVideoEl.play();
+          } catch (e) {
+            console.warn('Video background autoplay note:', e);
+          }
+        }
+      }
 
       // Pre-draw initial frame so captureStream gets valid content immediately
       const isSingleVerse = ayahsInRange.length === 1;
@@ -325,12 +352,21 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
             for (let attempt = 0; attempt < 3; attempt++) {
               try {
                 if (config.audioMode === 'recitation' || config.audioMode === 'both') {
+                  const recSpeed = config.recitationSpeed || (config.audioMode === 'recitation' ? (config.deliverySpeed || 1.0) : 1.0);
+                  const customRecUrl = config.customRecitationAudios?.[ayah.num] || config.customRecitationUrl;
+                  const folderToFetch = (config.reciterFolder === 'custom-own-voice' && customRecUrl)
+                    ? customRecUrl
+                    : config.reciterFolder;
+
                   aBuf = await fetchAudioBuffer(
                     audioCtx,
-                    config.reciterFolder,
+                    folderToFetch,
                     surah.number,
                     ayah.num,
-                    config.gaplessAudio
+                    config.gaplessAudio,
+                    undefined,
+                    undefined,
+                    { speed: recSpeed, resonance120Hz: false, voiceProfile: 'standard', customAudioUrl: customRecUrl }
                   );
                 }
 
@@ -340,16 +376,20 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
                   const speed = config.deliverySpeed || config.translationSpeechRate || 1.0;
                   const resonance120Hz = config.baritoneResonance !== undefined ? config.baritoneResonance : isScholarVoice;
                   const profile = config.voiceProfile || spoken.voiceProfile;
+                  const customTransUrl = config.customTranslationAudios?.[ayah.num] || config.customTranslationUrl;
+                  const transFolderToFetch = (config.translationReciterFolder === 'custom-own-voice-translation' && customTransUrl)
+                    ? customTransUrl
+                    : config.translationReciterFolder;
 
                   tBuf = await fetchAudioBuffer(
                     audioCtx,
-                    config.translationReciterFolder,
+                    transFolderToFetch,
                     surah.number,
                     ayah.num,
                     config.gaplessAudio,
                     spoken.text,
                     spoken.lang,
-                    { speed, resonance120Hz, voiceProfile: profile }
+                    { speed, resonance120Hz, voiceProfile: profile, customAudioUrl: customTransUrl }
                   );
                 }
                 break;
@@ -1029,6 +1069,16 @@ export const VideoExporterModal: React.FC<ExportModalProps> = ({
                 <div className="flex justify-between border-b border-slate-800/80 pb-2">
                   <span className="text-slate-400">Theme:</span>
                   <span className="font-semibold text-slate-200">{config.videoStyle}</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-800/80 pb-2">
+                  <span className="text-slate-400">Audio Speed:</span>
+                  <span className="font-semibold text-amber-300">
+                    {config.audioMode === 'both'
+                      ? `Recitation ${config.recitationSpeed || 1.0}x • Voice ${config.deliverySpeed || config.translationSpeechRate || 1.0}x`
+                      : config.audioMode === 'translation-only'
+                      ? `Voice ${config.deliverySpeed || config.translationSpeechRate || 1.0}x`
+                      : `Recitation ${config.recitationSpeed || config.deliverySpeed || 1.0}x`}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Verses in One Go:</span>

@@ -12,6 +12,7 @@ import {
   User,
   Crown,
   KeyRound,
+  Play,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -23,6 +24,7 @@ interface HeaderProps {
   isTaskCompleted?: boolean;
   onResumeTaskClick?: () => void;
   onOpenAdminAccess?: () => void;
+  onOpenGuide?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -33,6 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   isTaskCompleted,
   onResumeTaskClick,
   onOpenAdminAccess,
+  onOpenGuide,
 }) => {
   const { user, isOwner, isAdmin, userRole, subscriptionPlan, logout, pendingRequests } = useAuth();
   const [showUserDropdown, setShowUserDropdown] = useState(false);
@@ -131,6 +134,20 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </button>
           </nav>
+
+          {/* Guide Video Button */}
+          {onOpenGuide && (
+            <button
+              type="button"
+              onClick={onOpenGuide}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500/15 via-amber-400/20 to-amber-600/15 hover:from-amber-500/25 hover:to-amber-600/35 text-amber-300 hover:text-white border border-amber-500/40 hover:border-amber-400 rounded-xl text-xs font-bold shadow-sm shadow-amber-500/10 transition-all cursor-pointer"
+              title="Watch interactive guide video and tutorial walkthrough"
+            >
+              <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span>Guide Video</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse ml-0.5" />
+            </button>
+          )}
 
           {/* Admin Control Button - Exclusively for Studio Owner */}
           {isOwner && onOpenAdminAccess && (

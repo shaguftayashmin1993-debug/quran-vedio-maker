@@ -154,7 +154,120 @@ export function preloadAllBackgroundImages() {
 // Immediately trigger background image preloading for lightning-fast rendering
 preloadAllBackgroundImages();
 
-export async function ensureBackgroundImageLoaded(category?: string): Promise<HTMLImageElement | null> {
+let currentCustomBgUrl: string | null = null;
+
+export function setCustomBackgroundImageUrl(url: string | null) {
+  currentCustomBgUrl = url;
+  if (url) {
+    registerCustomImage('custom-upload', url);
+  }
+}
+
+let currentCustomBgVideoUrl: string | null = null;
+let currentCustomBgVideoElement: HTMLVideoElement | null = null;
+const videoCacheMap = new Map<string, HTMLVideoElement>();
+
+export function getOrCreateVideoElement(url: string): HTMLVideoElement {
+  if (videoCacheMap.has(url)) {
+    const cached = videoCacheMap.get(url)!;
+    if (cached.src === url) {
+      if (cached.paused) {
+        cached.play().catch(() => {});
+      }
+      return cached;
+    }
+  }
+
+  const video = document.createElement('video');
+  video.src = url;
+  video.crossOrigin = 'anonymous';
+  video.loop = true;
+  video.muted = true;
+  video.playsInline = true;
+  video.autoplay = true;
+  video.onloadeddata = () => {
+    video.play().catch(() => {});
+    notifyImageLoadListeners();
+  };
+  video.onerror = () => {
+    console.warn('Background video failed to load:', url);
+  };
+  video.play().catch(() => {});
+  videoCacheMap.set(url, video);
+  return video;
+}
+
+export function setCustomBackgroundVideoUrl(url: string | null): HTMLVideoElement | null {
+  currentCustomBgVideoUrl = url;
+  if (!url) {
+    if (currentCustomBgVideoElement) {
+      try {
+        currentCustomBgVideoElement.pause();
+      } catch (e) {}
+      currentCustomBgVideoElement = null;
+    }
+    return null;
+  }
+
+  const video = getOrCreateVideoElement(url);
+  currentCustomBgVideoElement = video;
+  return video;
+}
+
+export function getCustomBackgroundVideoElement(): HTMLVideoElement | null {
+  return currentCustomBgVideoElement;
+}
+
+export function registerCustomImage(key: string, url: string): HTMLImageElement {
+  if (imageCacheMap.has(key)) {
+    const existing = imageCacheMap.get(key)!;
+    if (existing.src === url && existing.complete && existing.naturalWidth > 0) {
+      return existing;
+    }
+  }
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = () => {
+    imageCacheMap.set(key, img);
+    notifyImageLoadListeners();
+  };
+  img.src = url;
+  imageCacheMap.set(key, img);
+  return img;
+}
+
+export async function ensureBackgroundImageLoaded(category?: string, customUrl?: string): Promise<HTMLImageElement | null> {
+  const effectiveCustom = (category === 'custom-upload' || !category || category === 'none') && (customUrl || currentCustomBgUrl)
+    ? (customUrl || currentCustomBgUrl!)
+    : (category && (category.startsWith('data:') || category.startsWith('blob:') || (category.startsWith('http') && !category.includes('unsplash.com'))))
+    ? category
+    : null;
+
+  if (effectiveCustom) {
+    const cacheKey = effectiveCustom;
+    if (imageCacheMap.has(cacheKey)) {
+      const existing = imageCacheMap.get(cacheKey)!;
+      if (existing.complete && existing.naturalWidth > 0) return existing;
+    }
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        imageCacheMap.set(cacheKey, img);
+        imageCacheMap.set('custom-upload', img);
+        notifyImageLoadListeners();
+        resolve(img);
+      };
+      img.onerror = () => {
+        const fallback = imageCacheMap.get('makkah-kaaba-majestic');
+        resolve(fallback || null);
+      };
+      img.src = effectiveCustom;
+      imageCacheMap.set(cacheKey, img);
+      imageCacheMap.set('custom-upload', img);
+    });
+  }
+
   const safeCat = (!category || category === 'none') ? 'makkah-kaaba-majestic' : category;
   const url = BG_IMAGE_URLS[safeCat] || BG_IMAGE_URLS['makkah-kaaba-majestic'];
   if (!url) return null;
@@ -197,7 +310,32 @@ export async function ensureBackgroundImageLoaded(category?: string): Promise<HT
   });
 }
 
-function getBackgroundImage(category: string): HTMLImageElement | null {
+function getBackgroundImage(category: string, customUrl?: string): HTMLImageElement | null {
+  const effectiveCustom = (category === 'custom-upload') && (customUrl || currentCustomBgUrl)
+    ? (customUrl || currentCustomBgUrl!)
+    : (category && (category.startsWith('data:') || category.startsWith('blob:') || (category.startsWith('http') && !category.includes('unsplash.com'))))
+    ? category
+    : null;
+
+  if (effectiveCustom) {
+    const cacheKey = effectiveCustom;
+    if (imageCacheMap.has(cacheKey)) {
+      const img = imageCacheMap.get(cacheKey)!;
+      if (img.complete && img.naturalWidth > 0) return img;
+      if (!img.onload) {
+        img.onload = () => notifyImageLoadListeners();
+      }
+      return null;
+    }
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => notifyImageLoadListeners();
+    img.src = effectiveCustom;
+    imageCacheMap.set(cacheKey, img);
+    imageCacheMap.set('custom-upload', img);
+    return null;
+  }
+
   // Automatically fallback to 4K Makkah Holy Kaaba if none or invalid so solid black is never shown
   const safeCat = (!category || category === 'none') ? 'makkah-kaaba-majestic' : category;
   const url = BG_IMAGE_URLS[safeCat] || BG_IMAGE_URLS['makkah-kaaba-majestic'] || BG_IMAGE_URLS['holy-kaaba-makkah'];
@@ -318,11 +456,55 @@ export function drawBackground(
   bgImageCategory?: VideoConfig['bgImageCategory'],
   bgOverlayDarkness: number = 0.55,
   animTime: number = Date.now(),
-  enableMotion: boolean = true
+  enableMotion: boolean = true,
+  customBgImageUrl?: string,
+  customBgVideoUrl?: string
 ) {
+  // 0. Check if custom video background is active
+  const isVideoBg = bgImageCategory === 'custom-video' || !!customBgVideoUrl;
+  const effectiveVideoUrl = customBgVideoUrl || (bgImageCategory === 'custom-video' ? currentCustomBgVideoUrl : null);
+  const videoEl = isVideoBg && effectiveVideoUrl
+    ? getOrCreateVideoElement(effectiveVideoUrl)
+    : (isVideoBg ? currentCustomBgVideoElement : null);
+
+  if (isVideoBg && videoEl && videoEl.readyState >= 2 && videoEl.videoWidth > 0 && videoEl.videoHeight > 0) {
+    if (videoEl.paused) {
+      videoEl.play().catch(() => {});
+    }
+
+    const vidRatio = videoEl.videoWidth / videoEl.videoHeight;
+    const canvasRatio = width / height;
+    let renderW = width;
+    let renderH = height;
+
+    if (vidRatio > canvasRatio) {
+      renderW = height * vidRatio;
+    } else {
+      renderH = width / vidRatio;
+    }
+
+    ctx.save();
+    ctx.drawImage(videoEl, (width - renderW) / 2, (height - renderH) / 2, renderW, renderH);
+    ctx.restore();
+
+    // Draw cinematic vignette overlay for 100% text legibility while preserving vibrant video details
+    const darkAlpha = Math.max(0.18, Math.min(0.88, bgOverlayDarkness));
+    const vignette = ctx.createRadialGradient(width / 2, height / 2, width * 0.15, width / 2, height / 2, width * 0.82);
+    vignette.addColorStop(0, `rgba(10, 16, 32, ${darkAlpha * 0.42})`);
+    vignette.addColorStop(0.65, `rgba(6, 11, 24, ${darkAlpha * 0.68})`);
+    vignette.addColorStop(1, `rgba(4, 7, 16, ${Math.min(0.92, darkAlpha * 0.98)})`);
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, width, height);
+
+    // Subtle dark overall tint to ensure text contrast
+    ctx.fillStyle = `rgba(0, 0, 0, ${darkAlpha * 0.35})`;
+    ctx.fillRect(0, 0, width, height);
+    return;
+  }
+
   // 1. Check if background image is active and loaded (always use 4K Makkah Kaaba if none or invalid)
   const safeBgCategory = (!bgImageCategory || bgImageCategory === 'none') ? 'makkah-kaaba-majestic' : bgImageCategory;
-  let bgImg = getBackgroundImage(safeBgCategory);
+  let bgImg = getBackgroundImage(safeBgCategory, customBgImageUrl);
   if (!bgImg) {
     // If the requested image is still fetching over network, fallback immediately to ready 4K Kaaba or cached scenery
     const fallbackKaaba = imageCacheMap.get('makkah-kaaba-majestic');
@@ -609,7 +791,9 @@ export function drawTitleFrame(
     config.bgImageCategory,
     config.bgOverlayDarkness,
     animTime,
-    config.animatedSceneryEffects !== false
+    config.animatedSceneryEffects !== false,
+    config.customBgImageUrl,
+    config.customBgVideoUrl
   );
 
   const hasBgImg = config.bgImageCategory && config.bgImageCategory !== 'none' && config.videoStyle !== 'quran-page';
@@ -711,7 +895,9 @@ export function drawBismillahFrame(
     config.bgImageCategory,
     config.bgOverlayDarkness,
     animTime,
-    config.animatedSceneryEffects !== false
+    config.animatedSceneryEffects !== false,
+    config.customBgImageUrl,
+    config.customBgVideoUrl
   );
 
   const hasBgImg = config.bgImageCategory && config.bgImageCategory !== 'none' && config.videoStyle !== 'quran-page';
@@ -795,8 +981,17 @@ export function drawAyahFrame(
   else if (isSymbolicSlot) activeStyle = 'symbolic-broll';
 
   let activeBgCategory = config.bgImageCategory;
+  let activeCustomUrl = config.customBgImageUrl;
+  let activeCustomVideoUrl = config.customBgVideoUrl;
+
   if (config.rotateBgPerAyah === true && config.bgImageCategory !== 'none') {
-    if (isScholarSlot) {
+    if (config.bgImageCategory === 'custom-upload' && config.customBgImages && config.customBgImages.length > 0) {
+      const customIdx = (ayah.num - 1) % config.customBgImages.length;
+      activeCustomUrl = config.customBgImages[customIdx].url;
+    } else if (config.bgImageCategory === 'custom-video' && config.customBgVideos && config.customBgVideos.length > 0) {
+      const vidIdx = (ayah.num - 1) % config.customBgVideos.length;
+      activeCustomVideoUrl = config.customBgVideos[vidIdx].url;
+    } else if (isScholarSlot) {
       activeBgCategory = 'scholar-study';
     } else if (isSymbolicSlot) {
       const brollList: VideoConfig['bgImageCategory'][] = [
@@ -813,8 +1008,10 @@ export function drawAyahFrame(
       activeBgCategory = SCENERY_ROTATION_LIST[bgIndex];
     }
     // Preload next background image
-    const nextIndex = ayah.num % SCENERY_ROTATION_LIST.length;
-    getBackgroundImage(SCENERY_ROTATION_LIST[nextIndex]);
+    if (config.bgImageCategory !== 'custom-upload' && config.bgImageCategory !== 'custom-video') {
+      const nextIndex = ayah.num % SCENERY_ROTATION_LIST.length;
+      getBackgroundImage(SCENERY_ROTATION_LIST[nextIndex]);
+    }
   } else if (activeBgCategory === 'none') {
     if (isScholarSlot) activeBgCategory = 'scholar-study';
     else if (isSymbolicSlot) activeBgCategory = 'symbolic-twilight-desert';
@@ -828,7 +1025,9 @@ export function drawAyahFrame(
     activeBgCategory,
     config.bgOverlayDarkness,
     animTime,
-    config.animatedSceneryEffects !== false
+    config.animatedSceneryEffects !== false,
+    activeCustomUrl,
+    activeCustomVideoUrl
   );
 
   const isPortrait = config.aspectRatio === '9:16';
@@ -1367,11 +1566,22 @@ export function drawQuranBookPageFrame(
   showSurahHeader: boolean = true
 ) {
   let activeBgCategory = config.bgImageCategory;
+  let activeCustomUrl = config.customBgImageUrl;
+  let activeCustomVideoUrl = config.customBgVideoUrl;
+
   if (config.rotateBgPerAyah === true && config.bgImageCategory !== 'none') {
-    const bgIndex = (activeAyah.num - 1) % SCENERY_ROTATION_LIST.length;
-    activeBgCategory = SCENERY_ROTATION_LIST[bgIndex];
-    const nextIndex = activeAyah.num % SCENERY_ROTATION_LIST.length;
-    getBackgroundImage(SCENERY_ROTATION_LIST[nextIndex]);
+    if (config.bgImageCategory === 'custom-upload' && config.customBgImages && config.customBgImages.length > 0) {
+      const customIdx = (activeAyah.num - 1) % config.customBgImages.length;
+      activeCustomUrl = config.customBgImages[customIdx].url;
+    } else if (config.bgImageCategory === 'custom-video' && config.customBgVideos && config.customBgVideos.length > 0) {
+      const vidIdx = (activeAyah.num - 1) % config.customBgVideos.length;
+      activeCustomVideoUrl = config.customBgVideos[vidIdx].url;
+    } else {
+      const bgIndex = (activeAyah.num - 1) % SCENERY_ROTATION_LIST.length;
+      activeBgCategory = SCENERY_ROTATION_LIST[bgIndex];
+      const nextIndex = activeAyah.num % SCENERY_ROTATION_LIST.length;
+      getBackgroundImage(SCENERY_ROTATION_LIST[nextIndex]);
+    }
   }
 
   // 1. Background & Margins
@@ -1383,7 +1593,9 @@ export function drawQuranBookPageFrame(
     activeBgCategory,
     config.bgOverlayDarkness,
     animTime,
-    config.animatedSceneryEffects !== false
+    config.animatedSceneryEffects !== false,
+    activeCustomUrl,
+    activeCustomVideoUrl
   );
 
   const hasBgImg = activeBgCategory && activeBgCategory !== 'none';

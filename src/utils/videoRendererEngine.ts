@@ -1,5 +1,5 @@
 import { Surah, VideoConfig, Ayah } from '../types';
-import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages, ensureBackgroundImageLoaded } from './canvasRenderer';
+import { drawAyahFrame, drawBismillahFrame, drawTitleFrame, preloadAllBackgroundImages, ensureBackgroundImageLoaded, setCustomBackgroundVideoUrl, getOrCreateVideoElement } from './canvasRenderer';
 import { generateSrtSubtitles, generateVttSubtitles, SubtitleCue } from './subtitleGenerator';
 import { fetchAudioBuffer, stripBismillahFromAyah1, audioBuffersToCombinedBlob, concatenateAudioBuffersWithOffsets, createSilentBuffer } from './audioUtils';
 import { getAyahTranslationText, getSpokenTranslationTextAndLang } from './translationUtils';
@@ -232,14 +232,21 @@ export async function renderVideoSegment(
         // Recitation Audio
         if (config.audioMode === 'recitation' || config.audioMode === 'both') {
           try {
+            const recSpeed = config.recitationSpeed || (config.audioMode === 'recitation' ? (config.deliverySpeed || 1.0) : 1.0);
+            const customRecUrl = config.customRecitationAudios?.[ayah.num] || config.customRecitationUrl;
+            const folderToFetch = (config.reciterFolder === 'custom-own-voice' && customRecUrl)
+              ? customRecUrl
+              : config.reciterFolder;
+
             aBuf = await fetchAudioBuffer(
               audioCtx,
-              config.reciterFolder,
+              folderToFetch,
               surah.number,
               ayah.num,
               true,
               ayah.arabic,
-              'ar'
+              'ar',
+              { speed: recSpeed, resonance120Hz: false, voiceProfile: 'standard', customAudioUrl: customRecUrl }
             );
           } catch (err) {
             console.warn(`Failed Arabic audio for Ayah ${ayah.num}`, err);
@@ -253,17 +260,21 @@ export async function renderVideoSegment(
           const speed = config.deliverySpeed || config.translationSpeechRate || 1.0;
           const resonance120Hz = config.baritoneResonance !== undefined ? config.baritoneResonance : isScholarVoice;
           const profile = config.voiceProfile || spoken.voiceProfile;
+          const customTransUrl = config.customTranslationAudios?.[ayah.num] || config.customTranslationUrl;
+          const transFolderToFetch = (config.translationReciterFolder === 'custom-own-voice-translation' && customTransUrl)
+            ? customTransUrl
+            : config.translationReciterFolder;
 
           try {
             tBuf = await fetchAudioBuffer(
               audioCtx,
-              config.translationReciterFolder,
+              transFolderToFetch,
               surah.number,
               ayah.num,
               true,
               spoken.text,
               spoken.lang,
-              { speed, resonance120Hz, voiceProfile: profile }
+              { speed, resonance120Hz, voiceProfile: profile, customAudioUrl: customTransUrl }
             );
           } catch (err) {
             console.warn(`Failed Translation audio for Ayah ${ayah.num}`, err);
@@ -424,8 +435,35 @@ export async function renderVideoSegment(
     const combinedAudioBlob = audioBuffersToCombinedBlob([masterAudioBuffer], audioCtx.sampleRate || 44100);
     const audioBlobUrl = URL.createObjectURL(combinedAudioBlob);
 
-    // Preload background scenery so frame 0 renders with 4K photo
-    await ensureBackgroundImageLoaded(config.bgImageCategory);
+    // Preload background scenery so frame 0 renders with 4K photo or custom uploaded photo
+    await ensureBackgroundImageLoaded(config.bgImageCategory, config.customBgImageUrl);
+    if (config.bgImageCategory === 'custom-upload' && config.customBgImages && config.customBgImages.length > 0) {
+      await Promise.all(
+        config.customBgImages.map((img) => ensureBackgroundImageLoaded('custom-upload', img.url))
+      );
+    }
+
+    // Initialize background video if custom video is selected
+    let bgVideoEl: HTMLVideoElement | null = null;
+    if (config.bgImageCategory === 'custom-video' || config.customBgVideoUrl) {
+      bgVideoEl = setCustomBackgroundVideoUrl(config.customBgVideoUrl || null);
+      if (config.customBgVideos && config.customBgVideos.length > 0) {
+        for (const vid of config.customBgVideos) {
+          const v = getOrCreateVideoElement(vid.url);
+          try {
+            await v.play();
+          } catch (e) {}
+        }
+      }
+      if (bgVideoEl) {
+        bgVideoEl.currentTime = 0;
+        try {
+          await bgVideoEl.play();
+        } catch (e) {
+          console.warn('Video background autoplay note:', e);
+        }
+      }
+    }
 
     // Initial frame draw
     if (needsTitleCard) {

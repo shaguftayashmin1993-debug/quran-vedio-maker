@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Sparkles, BookOpen, Layers } from 'lucide-react';
+import { Search, Sparkles, BookOpen, Layers, Play } from 'lucide-react';
 import { SurahMeta, SURAHS, searchSurahs } from '../data/surahs';
 
 interface SurahSelectorProps {
@@ -9,6 +9,7 @@ interface SurahSelectorProps {
   endAyah: number;
   onRangeChange: (start: number, end: number) => void;
   onOpenBatchExport?: () => void;
+  onOpenGuide?: () => void;
 }
 
 const GLOBAL_PRESETS = [
@@ -64,7 +65,8 @@ export const SurahSelector: React.FC<SurahSelectorProps> = ({
   startAyah,
   endAyah,
   onRangeChange,
-  onOpenBatchExport
+  onOpenBatchExport,
+  onOpenGuide
 }) => {
   const [query, setQuery] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -125,14 +127,27 @@ export const SurahSelector: React.FC<SurahSelectorProps> = ({
     <div className="bg-[#0e1626] rounded-2xl border border-slate-800/80 p-5 shadow-xl space-y-5">
       {/* 1. Direct Dropdown Select for All 114 Surahs */}
       <div>
-        <label className="block text-xs font-semibold text-amber-400 uppercase tracking-wider mb-2 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
             <BookOpen className="w-3.5 h-3.5" /> Select Surah (1 to 114)
-          </span>
-          <span className="text-amber-300/90 font-medium text-[11px]">
-            Selected: #{selectedSurah.number} Surah {selectedSurah.englishName}
-          </span>
-        </label>
+          </label>
+          <div className="flex items-center gap-2">
+            {onOpenGuide && (
+              <button
+                type="button"
+                onClick={onOpenGuide}
+                className="text-[11px] font-bold text-amber-300 hover:text-white bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30 flex items-center gap-1 transition-all cursor-pointer shadow-xs"
+                title="Open Studio Guide Video & Walkthrough"
+              >
+                <Play className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                <span>Guide Video</span>
+              </button>
+            )}
+            <span className="text-amber-300/90 font-medium text-[11px] hidden sm:inline">
+              Selected: #{selectedSurah.number} Surah {selectedSurah.englishName}
+            </span>
+          </div>
+        </div>
 
         <select
           value={selectedSurah.number}

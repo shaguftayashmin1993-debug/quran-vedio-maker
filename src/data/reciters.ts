@@ -1,6 +1,19 @@
 import { Reciter, TranslationReciter } from '../types';
 
 export const RECITERS: Reciter[] = [
+  // Custom Own Voice Recitation
+  {
+    id: 'custom-own-voice',
+    name: '🎙️ Record / Upload Your Own Voice Recitation',
+    folder: 'custom-own-voice',
+    quality: 'Microphone / Upload',
+    category: 'custom',
+    style: 'Your Own Personal Recitation',
+    rating: 5.0,
+    reviewsCount: 1,
+    description: 'Record your own voice live with your microphone or upload your audio file (MP3/WAV/M4A).',
+    tags: ['Own Voice', 'Live Mic', 'Upload Audio', 'Monetization Safe']
+  },
   // Very famous & popular Qaris
   {
     id: 'alafasy',
@@ -241,6 +254,19 @@ export const RECITERS: Reciter[] = [
 ];
 
 export const TRANSLATION_RECITERS: TranslationReciter[] = [
+  // Custom Own Voice Spoken Translation
+  {
+    id: 'custom-own-voice-translation',
+    name: '🎙️ Record / Upload Your Own Voice Translation',
+    lang: 'ur',
+    folder: 'custom-own-voice-translation',
+    quality: 'Microphone / Upload',
+    style: 'Your Own Personal Translation Voice',
+    rating: 5.0,
+    reviewsCount: 1,
+    description: 'Record your own spoken translation live with your microphone or upload your audio file (MP3/WAV/M4A).',
+    tags: ['Own Voice', 'Live Mic', 'Upload Audio', 'Monetization Safe']
+  },
   // 1. Authentic Human Urdu Studio Voices (100% Real Human Voice Recitation)
   {
     id: 'ur-shamshad-khan',
@@ -463,6 +489,14 @@ export const TRANSLATION_RECITERS: TranslationReciter[] = [
 ];
 
 export function getAudioUrl(reciterFolder: string, surahNum: number, ayahNum: number): string {
+  if (
+    reciterFolder.startsWith('blob:') ||
+    reciterFolder.startsWith('data:') ||
+    reciterFolder.startsWith('http://') ||
+    reciterFolder.startsWith('https://')
+  ) {
+    return reciterFolder;
+  }
   const padSurah = String(surahNum).padStart(3, '0');
   const padAyah = String(ayahNum).padStart(3, '0');
   const directUrl = `https://everyayah.com/data/${reciterFolder}/${padSurah}${padAyah}.mp3`;

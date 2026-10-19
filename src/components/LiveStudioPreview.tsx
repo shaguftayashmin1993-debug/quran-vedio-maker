@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Download, RefreshCw, AlertCircle, Layers } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Maximize2, Download, RefreshCw, AlertCircle, Layers, Gauge, RotateCcw, Upload, Image as ImageIcon, Mic, Film } from 'lucide-react';
 import { Surah, Ayah, VideoConfig, TranslationLang, TextSize } from '../types';
 import { getAudioUrl } from '../data/reciters';
-import { drawAyahFrame, drawTitleFrame, drawBismillahFrame, subscribeBackgroundImageLoad, ensureBackgroundImageLoaded } from '../utils/canvasRenderer';
+import { drawAyahFrame, drawTitleFrame, drawBismillahFrame, subscribeBackgroundImageLoad, ensureBackgroundImageLoaded, setCustomBackgroundImageUrl, setCustomBackgroundVideoUrl, getOrCreateVideoElement } from '../utils/canvasRenderer';
 import { getAyahTranslationText, getSpokenTranslationTextAndLang } from '../utils/translationUtils';
 
 interface LiveStudioPreviewProps {
@@ -15,6 +15,7 @@ interface LiveStudioPreviewProps {
   isExportModalOpen?: boolean;
   onOpenBatchExportModal?: () => void;
   onChangeConfig?: (updates: Partial<VideoConfig>) => void;
+  onOpenGuide?: () => void;
 }
 
 export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
@@ -26,7 +27,8 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
   onOpenExportModal,
   isExportModalOpen,
   onOpenBatchExportModal,
-  onChangeConfig
+  onChangeConfig,
+  onOpenGuide
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -37,17 +39,175 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [audioError, setAudioError] = useState<string | null>(null);
   const [renderTrigger, setRenderTrigger] = useState<number>(0);
+  const [showSpeedPopover, setShowSpeedPopover] = useState<boolean>(false);
+  const activePhaseRef = useRef<'arabic' | 'translation'>('arabic');
+
+  // Handle speed update with instant real-time audio playbackRate change
+  const handleUpdateSpeed = (newSpeed: number) => {
+    if (audioRef.current) {
+      try {
+        audioRef.current.playbackRate = newSpeed;
+      } catch (e) {}
+    }
+    if (onChangeConfig) {
+      onChangeConfig({
+        recitationSpeed: newSpeed,
+        deliverySpeed: newSpeed,
+        translationSpeechRate: newSpeed
+      });
+    }
+  };
+
+  // Re-sync playbackRate in real time if config speed changes externally
+  useEffect(() => {
+    if (audioRef.current) {
+      const spd = activePhaseRef.current === 'arabic'
+        ? (config.recitationSpeed || (config.audioMode === 'recitation' ? (config.deliverySpeed || 1.0) : 1.0))
+        : (config.deliverySpeed || config.translationSpeechRate || 1.0);
+      try {
+        audioRef.current.playbackRate = spd;
+      } catch (e) {}
+    }
+  }, [config.recitationSpeed, config.deliverySpeed, config.translationSpeechRate]);
 
   // Re-draw when background image finishes loading in background
   useEffect(() => {
     const unsub = subscribeBackgroundImageLoad(() => {
       setRenderTrigger((prev) => prev + 1);
     });
-    ensureBackgroundImageLoaded(config.bgImageCategory).then(() => {
+    ensureBackgroundImageLoaded(config.bgImageCategory, config.customBgImageUrl).then(() => {
       setRenderTrigger((prev) => prev + 1);
     });
     return unsub;
-  }, [config.bgImageCategory]);
+  }, [config.bgImageCategory, config.customBgImageUrl]);
+
+  const bgFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleQuickBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files) as File[];
+    const imgFiles = fileList.filter((f) => f.type.startsWith('image/'));
+    if (imgFiles.length === 0) return;
+
+    const readPromises = imgFiles.map((file, idx) => {
+      return new Promise<{ id: string; url: string; name: string } | null>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const dataUrl = ev.target?.result as string;
+          if (!dataUrl) return resolve(null);
+          resolve({
+            id: `custom-bg-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+            url: dataUrl,
+            name: file.name
+          });
+        };
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      });
+    });
+
+    const results = await Promise.all(readPromises);
+    const validItems = results.filter((item): item is { id: string; url: string; name: string } => item !== null);
+    if (validItems.length === 0) return;
+
+    for (const item of validItems) {
+      ensureBackgroundImageLoaded('custom-upload', item.url);
+    }
+    const primary = validItems[0];
+    setCustomBackgroundImageUrl(primary.url);
+
+    const existingList = config.customBgImages || [];
+    const existingFiltered = existingList.filter((img) => !validItems.some((v) => v.url === img.url));
+    const updatedImages = [...validItems, ...existingFiltered].slice(0, 30);
+
+    if (onChangeConfig) {
+      onChangeConfig({
+        bgImageCategory: 'custom-upload',
+        bgType: 'image',
+        customBgImageUrl: primary.url,
+        customBgImageName: primary.name,
+        customBgImages: updatedImages
+      });
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  const videoFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleQuickVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const fileList = Array.from(files) as File[];
+    const vidFiles = fileList.filter(
+      (f) => f.type.startsWith('video/') || f.name.match(/\.(mp4|webm|mov|m4v|ogg)$/i)
+    );
+    if (vidFiles.length === 0) return;
+
+    const newVidItems: { id: string; url: string; name: string; duration: number; width?: number; height?: number }[] = [];
+
+    for (let i = 0; i < vidFiles.length; i++) {
+      const file = vidFiles[i];
+      const videoUrl = URL.createObjectURL(file);
+      const tempVideo = document.createElement('video');
+      tempVideo.preload = 'metadata';
+      tempVideo.src = videoUrl;
+
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const finish = () => {
+          if (!done) {
+            done = true;
+            resolve();
+          }
+        };
+        tempVideo.onloadedmetadata = finish;
+        tempVideo.onerror = finish;
+        setTimeout(finish, 3500);
+      });
+
+      getOrCreateVideoElement(videoUrl);
+
+      newVidItems.push({
+        id: `custom-vid-${Date.now()}-${i}-${Math.random().toString(36).substring(2, 7)}`,
+        url: videoUrl,
+        name: file.name,
+        duration: Math.round(tempVideo.duration || 0),
+        width: tempVideo.videoWidth || 1920,
+        height: tempVideo.videoHeight || 1080
+      });
+    }
+
+    if (newVidItems.length === 0) return;
+
+    const primary = newVidItems[0];
+    setCustomBackgroundVideoUrl(primary.url);
+
+    const existingList = config.customBgVideos || [];
+    const existingFiltered = existingList.filter((v) => !newVidItems.some((n) => n.name === v.name));
+    const updatedVideos = [...newVidItems, ...existingFiltered].slice(0, 20);
+
+    if (onChangeConfig) {
+      onChangeConfig({
+        bgImageCategory: 'custom-video',
+        bgType: 'video',
+        customBgVideoUrl: primary.url,
+        customBgVideoName: primary.name,
+        customBgVideoDuration: primary.duration,
+        customBgVideos: updatedVideos,
+        bgVideoLoop: true,
+        bgVideoMuted: true
+      });
+    }
+    if (e.target) e.target.value = '';
+  };
+
+  // Sync custom background video url with canvas renderer
+  useEffect(() => {
+    if (config.customBgVideoUrl) {
+      setCustomBackgroundVideoUrl(config.customBgVideoUrl);
+    }
+  }, [config.customBgVideoUrl]);
 
   // Filter ayahs based on start & end ayah range with robust auto-clamping
   const ayahsInRange = React.useMemo(() => {
@@ -109,8 +269,9 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
         drawTitleFrame(ctx, canvas.width, canvas.height, surah, config, progress, now);
       }
 
-      // Loop only when animating entrance transition or actively playing audio
-      if (progress < 1.0 || isPlaying) {
+      const isVideoBg = config.bgImageCategory === 'custom-video' || config.bgType === 'video' || !!config.customBgVideoUrl;
+      // Loop when animating entrance transition, actively playing audio, or rendering animated video background
+      if (progress < 1.0 || isPlaying || isVideoBg) {
         animationFrameId = requestAnimationFrame(render);
       }
     };
@@ -120,7 +281,7 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
     return () => {
       if (animationFrameId) cancelAnimationFrame(animationFrameId);
     };
-  }, [surah, activeAyah, config, ayahsInRange, isBismillahPhase, isPlaying, renderTrigger]);
+  }, [surah, activeAyah, config, ayahsInRange, isBismillahPhase, isPlaying, renderTrigger, config.customBgVideoUrl, config.bgImageCategory]);
 
   // Stop background audio and canvas loop whenever export modal is opened
   useEffect(() => {
@@ -180,12 +341,15 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
 
     const playPhaseAudio = (phase: 'arabic' | 'translation') => {
       if (!isSubscribed) return;
+      activePhaseRef.current = phase;
 
       const folder = phase === 'arabic' ? config.reciterFolder : config.translationReciterFolder;
+      const targetSpeed = phase === 'arabic'
+        ? (config.recitationSpeed || (config.audioMode === 'recitation' ? (config.deliverySpeed || 1.0) : 1.0))
+        : (config.deliverySpeed || config.translationSpeechRate || 1.0);
 
       if (folder.startsWith('tts')) {
         const spoken = getSpokenTranslationTextAndLang(activeAyah, folder, config.translationLang);
-        const targetSpeed = config.deliverySpeed || config.translationSpeechRate || 1.0;
         const profile = config.voiceProfile || spoken.voiceProfile;
         const translationText = spoken.text;
 
@@ -233,8 +397,38 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
         }
       }
 
-      const audioUrl = getAudioUrl(folder, surah.number, activeAyah.num);
+      // Determine audio URL: prioritize custom own voice audio if selected
+      let audioUrl = '';
+      if (phase === 'arabic') {
+        const customUrl = config.customRecitationAudios?.[activeAyah.num] || config.customRecitationUrl;
+        if (config.reciterFolder === 'custom-own-voice') {
+          if (customUrl) {
+            audioUrl = customUrl;
+          } else {
+            setAudioError(`Ayah ${activeAyah.num} Own Voice has not been recorded yet. Click "Own Voice" in studio to record.`);
+            setIsPlaying(false);
+            return;
+          }
+        } else {
+          audioUrl = getAudioUrl(folder, surah.number, activeAyah.num);
+        }
+      } else {
+        const customTransUrl = config.customTranslationAudios?.[activeAyah.num] || config.customTranslationUrl;
+        if (config.translationReciterFolder === 'custom-own-voice-translation') {
+          if (customTransUrl) {
+            audioUrl = customTransUrl;
+          } else {
+            setAudioError(`Ayah ${activeAyah.num} Own Voice Translation has not been recorded yet. Click "Own Voice" in studio to record.`);
+            setIsPlaying(false);
+            return;
+          }
+        } else {
+          audioUrl = getAudioUrl(folder, surah.number, activeAyah.num);
+        }
+      }
+
       const audio = new Audio(audioUrl);
+      audio.playbackRate = targetSpeed;
       audioRef.current = audio;
       audio.muted = isMuted;
 
@@ -242,10 +436,21 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
       if (currentVerseIdx < ayahsInRange.length - 1) {
         const nextAyah = ayahsInRange[currentVerseIdx + 1];
         const nextFolder = config.audioMode === 'translation-only' ? config.translationReciterFolder : config.reciterFolder;
-        const nextAudioUrl = getAudioUrl(nextFolder, surah.number, nextAyah.num);
-        const preloadAudio = new Audio();
-        preloadAudio.src = nextAudioUrl;
-        preloadAudio.load();
+        let nextAudioUrl = '';
+        if (config.audioMode === 'translation-only') {
+          nextAudioUrl = (config.translationReciterFolder === 'custom-own-voice-translation' && config.customTranslationAudios?.[nextAyah.num])
+            ? config.customTranslationAudios[nextAyah.num]
+            : getAudioUrl(nextFolder, surah.number, nextAyah.num);
+        } else {
+          nextAudioUrl = (config.reciterFolder === 'custom-own-voice' && config.customRecitationAudios?.[nextAyah.num])
+            ? config.customRecitationAudios[nextAyah.num]
+            : getAudioUrl(nextFolder, surah.number, nextAyah.num);
+        }
+        if (nextAudioUrl) {
+          const preloadAudio = new Audio();
+          preloadAudio.src = nextAudioUrl;
+          preloadAudio.load();
+        }
       }
 
       audio.onerror = async () => {
@@ -269,6 +474,7 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
                 const blob = await res.blob();
                 const ttsUrl = URL.createObjectURL(blob);
                 const ttsAudio = new Audio(ttsUrl);
+                ttsAudio.playbackRate = targetSpeed;
                 audioRef.current = ttsAudio;
                 ttsAudio.muted = isMuted;
                 ttsAudio.play().catch(() => {});
@@ -396,6 +602,18 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenGuide && (
+            <button
+              type="button"
+              onClick={onOpenGuide}
+              className="px-3 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:border-amber-400 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              title="Watch interactive guide video and tutorial walkthrough"
+            >
+              <Play className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span>Guide Video</span>
+            </button>
+          )}
+
           {onOpenBatchExportModal && (
             <button
               onClick={onOpenBatchExportModal}
@@ -421,7 +639,7 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
 
       {/* Quick Text Size & Typography Bar */}
       {onChangeConfig && (
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-[#121c30]/90 rounded-xl border border-slate-800 text-xs">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-3 py-2 bg-[#121c30]/90 rounded-xl border border-slate-800 text-xs">
           <div className="flex items-center gap-2">
             <span className="text-slate-400 font-medium">Text Size:</span>
             <div className="flex items-center gap-1 bg-[#090e18] p-0.5 rounded-lg border border-slate-800">
@@ -450,9 +668,132 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
             </div>
           </div>
 
-          {config.videoStyle === 'quran-page' && (
+          {/* Quick Speed Controls */}
+          <div className="flex items-center gap-2">
+            <span className="text-slate-400 font-medium flex items-center gap-1">
+              <Gauge className="w-3.5 h-3.5 text-amber-400" /> Speed:
+            </span>
+            <div className="flex items-center gap-1 bg-[#090e18] p-0.5 rounded-lg border border-slate-800">
+              {[
+                { val: 0.75, label: '0.75x' },
+                { val: 0.85, label: '0.85x' },
+                { val: 1.0, label: '1.0x' },
+                { val: 1.15, label: '1.15x' },
+                { val: 1.25, label: '1.25x' },
+                { val: 1.5, label: '1.5x' },
+                { val: 2.0, label: '2.0x' }
+              ].map((s) => {
+                const cur = config.recitationSpeed || config.deliverySpeed || 1.0;
+                const active = Math.abs(cur - s.val) < 0.03;
+                return (
+                  <button
+                    key={s.val}
+                    type="button"
+                    onClick={() => handleUpdateSpeed(s.val)}
+                    className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                      active
+                        ? 'bg-amber-500 text-slate-950 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+              {config.videoStyle === 'quran-page' && (
             <div className="flex items-center gap-1.5 text-amber-300/90 font-semibold text-[11px] bg-[#090e18] px-2.5 py-1 rounded-lg border border-slate-800">
               <span>📖 {config.mushafAyatPerPage || 10} Ayat Per Page</span>
+            </div>
+          )}
+
+          {/* Quick Custom Background Image Upload */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={bgFileInputRef}
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={handleQuickBgUpload}
+            />
+            {config.bgImageCategory === 'custom-upload' && config.customBgImageUrl ? (
+              <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-lg text-[11px] font-semibold">
+                <ImageIcon className="w-3.5 h-3.5 text-amber-400" />
+                <span className="truncate max-w-[130px]">
+                  {config.customBgImages && config.customBgImages.length > 1
+                    ? `📸 ${config.customBgImages.length} Photos`
+                    : (config.customBgImageName || 'Custom Photo')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => bgFileInputRef.current?.click()}
+                  className="hover:text-white underline ml-1 text-[10px] cursor-pointer"
+                  title="Upload more background images"
+                >
+                  + Add / Change
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => bgFileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#090e18] hover:bg-[#16233d] text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 text-[11px] font-semibold transition-all cursor-pointer"
+                title="Upload and set your own background photo(s) (JPG, PNG, WEBP)"
+              >
+                <Upload className="w-3.5 h-3.5 text-amber-400" />
+                <span>Upload Photos</span>
+              </button>
+            )}
+          </div>
+
+          {/* Quick Custom Video Upload */}
+          <div className="flex items-center gap-2">
+            <input
+              ref={videoFileInputRef}
+              type="file"
+              multiple
+              accept="video/mp4,video/webm,video/quicktime,video/x-m4v,video/*"
+              className="hidden"
+              onChange={handleQuickVideoUpload}
+            />
+            {config.bgImageCategory === 'custom-video' && config.customBgVideoUrl ? (
+              <div className="flex items-center gap-1.5 bg-amber-500/15 border border-amber-500/40 text-amber-300 px-2.5 py-1 rounded-lg text-[11px] font-semibold">
+                <Film className="w-3.5 h-3.5 text-amber-400" />
+                <span className="truncate max-w-[130px]">
+                  {config.customBgVideos && config.customBgVideos.length > 1
+                    ? `🎬 ${config.customBgVideos.length} Videos`
+                    : (config.customBgVideoName || 'Custom Video')}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => videoFileInputRef.current?.click()}
+                  className="hover:text-white underline ml-1 text-[10px] cursor-pointer"
+                  title="Upload more background videos"
+                >
+                  + Add / Change
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => videoFileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#090e18] hover:bg-[#16233d] text-slate-300 hover:text-amber-300 border border-slate-800 hover:border-amber-500/40 text-[11px] font-semibold transition-all cursor-pointer"
+                title="Upload your own background video(s) (MP4, WebM, MOV)"
+              >
+                <Film className="w-3.5 h-3.5 text-amber-400" />
+                <span>Upload Videos</span>
+              </button>
+            )}
+          </div>
+
+          {/* Own Voice Active Status */}
+          {(config.reciterFolder === 'custom-own-voice' || config.translationReciterFolder === 'custom-own-voice-translation') && (
+            <div className="flex items-center gap-1.5 bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2.5 py-1 rounded-lg text-[11px] font-semibold">
+              <Mic className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span>Own Voice Active</span>
             </div>
           )}
         </div>
@@ -555,6 +896,99 @@ export const LiveStudioPreview: React.FC<LiveStudioPreviewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
+              {/* Playback & Voice Speed Popover */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowSpeedPopover(!showSpeedPopover)}
+                  className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                    showSpeedPopover
+                      ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md'
+                      : 'bg-slate-800 hover:bg-slate-700 text-amber-300 border-amber-500/30 hover:border-amber-400'
+                  }`}
+                  title="Audio Playback & Recitation Speed Options"
+                >
+                  <Gauge className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{(config.recitationSpeed || config.deliverySpeed || 1.0).toFixed(2).replace(/\.00$/, '')}x</span>
+                </button>
+
+                {showSpeedPopover && (
+                  <div className="absolute bottom-11 right-0 w-72 bg-[#0c1424] border border-amber-500/50 rounded-xl p-3.5 shadow-2xl z-30 space-y-2.5 text-xs">
+                    <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+                      <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                        <Gauge className="w-3.5 h-3.5 text-amber-400" /> Playback &amp; Voice Speed
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleUpdateSpeed(1.0)}
+                        className="text-[11px] text-slate-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
+                        title="Reset to 1.0x Normal Speed"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Reset 1.0x
+                      </button>
+                    </div>
+
+                    {/* Presets Grid */}
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {[
+                        { val: 0.5, label: '0.5x Slow' },
+                        { val: 0.75, label: '0.75x Tartil' },
+                        { val: 0.85, label: '0.85x Calm' },
+                        { val: 1.0, label: '1.0x Normal' },
+                        { val: 1.15, label: '1.15x Brisk' },
+                        { val: 1.25, label: '1.25x Fast' },
+                        { val: 1.5, label: '1.5x Rapid' },
+                        { val: 1.75, label: '1.75x Quick' },
+                        { val: 2.0, label: '2.0x Double' }
+                      ].map((s) => {
+                        const cur = config.recitationSpeed || config.deliverySpeed || 1.0;
+                        const active = Math.abs(cur - s.val) < 0.03;
+                        return (
+                          <button
+                            key={s.val}
+                            type="button"
+                            onClick={() => {
+                              handleUpdateSpeed(s.val);
+                              setShowSpeedPopover(false);
+                            }}
+                            className={`py-1.5 px-2 rounded-lg text-[11px] font-semibold transition-all text-center ${
+                              active
+                                ? 'bg-amber-500 text-slate-950 font-bold shadow-sm'
+                                : 'bg-slate-800/80 text-slate-300 hover:bg-slate-700 hover:text-white'
+                            }`}
+                          >
+                            {s.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Fine Slider */}
+                    <div className="pt-2 border-t border-slate-800 space-y-1">
+                      <div className="flex justify-between text-[11px] text-slate-400">
+                        <span>Fine Slider:</span>
+                        <span className="font-mono text-amber-400 font-bold">
+                          {(config.recitationSpeed || config.deliverySpeed || 1.0).toFixed(2)}x
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-mono">0.5x</span>
+                        <input
+                          type="range"
+                          min="0.5"
+                          max="2.5"
+                          step="0.05"
+                          value={config.recitationSpeed || config.deliverySpeed || 1.0}
+                          onChange={(e) => handleUpdateSpeed(parseFloat(e.target.value))}
+                          className="w-full accent-amber-500 cursor-pointer h-1.5 bg-slate-800 rounded-lg appearance-none"
+                        />
+                        <span className="text-[10px] text-slate-500 font-mono">2.5x</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={() => setIsMuted(!isMuted)}
                 className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors"
